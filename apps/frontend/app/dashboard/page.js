@@ -64,6 +64,7 @@ export default function DashboardPage() {
   const [expandedGroups, setExpandedGroups] = useState({});
 
   const longPressRef = useRef(null);
+  const suppressClickRef = useRef(null);
   const usageCardRef = useRef(null);
 
   const filteredAssets = useMemo(() => {
@@ -154,8 +155,9 @@ export default function DashboardPage() {
   function beginLongPress(id) {
     clearLongPress();
     longPressRef.current = setTimeout(() => {
+      suppressClickRef.current = id;
       setSelectionMode(true);
-      togglePick(id);
+      setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
     }, LONG_PRESS_MS);
   }
 
@@ -195,6 +197,10 @@ export default function DashboardPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [activeIndex, albumFilteredPhotos.length]);
 
+  useEffect(() => {
+    if (selectionMode && selectedIds.length === 0) setSelectionMode(false);
+  }, [selectionMode, selectedIds.length]);
+
   async function onUpload(e) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -232,6 +238,10 @@ export default function DashboardPage() {
       onTouchStart: () => beginLongPress(item.id),
       onTouchEnd: endLongPress,
       onClick: () => {
+        if (suppressClickRef.current === item.id) {
+          suppressClickRef.current = null;
+          return;
+        }
         if (selectionMode) togglePick(item.id);
         else onNormalClick?.();
       },
@@ -246,6 +256,10 @@ export default function DashboardPage() {
     <div className="shell">
       <aside className="sidebar">
         <div className="logo">HC Photos</div>
+
+        <button className={`navItem ${tab === 'photos' && collectionView === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); setSelectionMode(false); setSelectedIds([]); }}>
+          <span className="ico">🖼</span><span>Tất cả ảnh/video</span><span className="count">{basePhotoAssets.length}</span>
+        </button>
 
         <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setTab('docs'); setSelectionMode(false); setSelectedIds([]); }}>
           <span className="ico">📁</span><span>Tài liệu</span><span className="count">{docs.length}</span>
