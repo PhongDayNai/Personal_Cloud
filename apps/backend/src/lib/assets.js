@@ -5,11 +5,13 @@ const exifr = require('exifr');
 
 const LIBRARY_PATH = process.env.MEDIA_LIBRARY_PATH || '/data/library';
 const ORIGINALS_ROOT = path.join(LIBRARY_PATH, 'originals');
+const TRASH_ROOT = process.env.MEDIA_TRASH_PATH || path.join(LIBRARY_PATH, 'trash');
 const INDEX_DIR = path.join(LIBRARY_PATH, 'index');
 const INDEX_FILE = path.join(INDEX_DIR, 'assets.json');
 
 function ensureIndex() {
   fs.mkdirSync(ORIGINALS_ROOT, { recursive: true });
+  fs.mkdirSync(TRASH_ROOT, { recursive: true });
   fs.mkdirSync(INDEX_DIR, { recursive: true });
   if (!fs.existsSync(INDEX_FILE)) fs.writeFileSync(INDEX_FILE, JSON.stringify({ items: [] }, null, 2));
 }
@@ -87,6 +89,9 @@ async function saveUploadedFile(file, user) {
     takenAt,
     relPath,
     ext,
+    albumName: null,
+    isDeleted: false,
+    deletedAt: null,
     type: file.mimetype?.startsWith('image/') ? 'image' : file.mimetype?.startsWith('video/') ? 'video' : 'file',
   };
 
@@ -97,21 +102,105 @@ async function saveUploadedFile(file, user) {
   return item;
 }
 
-function listAssets(limit = 200) {
+function normalizeItem(x) {
+  return {
+    ...x,
+    takenAt: x.takenAt || x.uploadedAt,
+    albumName: x.albumName || null,
+    isDeleted: Boolean(x.isDeleted),
+    deletedAt: x.deletedAt || null,
+  };
+}
+
+function listAssets(limit = 200, opts = {}) {
+  const { includeTrash = false, onlyTrash = false } = opts;
   const db = readIndex();
-  const items = db.items.map((x) => ({ ...x, takenAt: x.takenAt || x.uploadedAt }));
-  return items.slice(0, Math.max(1, Math.min(limit, 500)));
+  let items = db.items.map(normalizeItem);
+
+  if (onlyTrash) items = items.filter((x) => x.isDeleted);
+  else if (!includeTrash) items = items.filter((x) => !x.isDeleted);
+
+  return items.slice(0, Math.max(1, Math.min(limit, 5000)));
 }
 
 function getAsset(id) {
   const db = readIndex();
   const item = db.items.find((x) => x.id === id) || null;
   if (!item) return null;
-  return { ...item, takenAt: item.takenAt || item.uploadedAt };
+  return normalizeItem(item);
 }
 
 function getAbsPathFromAsset(asset) {
   return path.join(LIBRARY_PATH, asset.relPath);
+}
+
+function listAlbums() {
+  const db = readIndex();
+  const m = new Map();
+  for (const it of db.items.map(normalizeItem)) {
+    if (it.isDeleted) continue;
+    if (!it.albumName) continue;
+    m.set(it.albumName, (m.get(it.albumName) || 0) + 1);
+  }
+  return Array.from(m.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function assignAlbum(ids = [], albumName = '') {
+  const name = String(albumName || '').trim();
+  if (!name) return { updated: 0 };
+
+  const idSet = new Set(ids || []);
+  const db = readIndex();
+  let updated = 0;
+
+  for (const it of db.items) {
+    if (!idSet.has(it.id)) continue;
+    if (it.isDeleted) continue;
+    it.albumName = name;
+    updated += 1;
+  }
+
+  writeIndex(db);
+  return { updated };
+}
+
+function moveToTrash(ids = []) {
+  const idSet = new Set(ids || []);
+  const db = readIndex();
+  let updated = 0;
+
+  for (const it of db.items) {
+    if (!idSet.has(it.id)) continue;
+    const item = normalizeItem(it);
+    if (item.isDeleted) continue;
+
+    const oldAbs = path.join(LIBRARY_PATH, item.relPath || '');
+    const ext = path.extname(item.originalName || '') || path.extname(item.relPath || '') || '';
+    const trashDir = path.join(TRASH_ROOT, new Date().toISOString().slice(0, 10));
+    fs.mkdirSync(trashDir, { recursive: true });
+    const newAbs = path.join(trashDir, `${item.id}${ext}`);
+
+    if (fs.existsSync(oldAbs)) {
+      try {
+        fs.renameSync(oldAbs, newAbs);
+      } catch (e) {
+        if (e && e.code === 'EXDEV') {
+          fs.copyFileSync(oldAbs, newAbs);
+          fs.unlinkSync(oldAbs);
+        } else {
+          throw e;
+        }
+      }
+      it.relPath = path.relative(LIBRARY_PATH, newAbs).replaceAll('\\', '/');
+    }
+
+    it.isDeleted = true;
+    it.deletedAt = new Date().toISOString();
+    updated += 1;
+  }
+
+  writeIndex(db);
+  return { updated };
 }
 
 module.exports = {
@@ -119,5 +208,8 @@ module.exports = {
   listAssets,
   getAsset,
   getAbsPathFromAsset,
+  listAlbums,
+  assignAlbum,
+  moveToTrash,
   LIBRARY_PATH,
 };

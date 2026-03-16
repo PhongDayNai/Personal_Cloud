@@ -81,17 +81,20 @@ export default function DashboardPage() {
   const recentCutoff = useMemo(() => Date.now() - 14 * 24 * 60 * 60 * 1000, []);
 
   const photoAssets = useMemo(() => {
+    const activePhotos = basePhotoAssets.filter((a) => !a.isDeleted);
+    const trashedPhotos = basePhotoAssets.filter((a) => a.isDeleted);
+
     if (collectionView === 'recent') {
-      return basePhotoAssets.filter((a) => new Date(a.uploadedAt || 0).getTime() >= recentCutoff);
+      return activePhotos.filter((a) => new Date(a.uploadedAt || 0).getTime() >= recentCutoff);
     }
-    if (collectionView === 'images') return basePhotoAssets.filter((a) => a.type === 'image');
-    if (collectionView === 'videos') return basePhotoAssets.filter((a) => a.type === 'video');
-    if (collectionView === 'trash') return [];
-    return basePhotoAssets;
+    if (collectionView === 'images') return activePhotos.filter((a) => a.type === 'image');
+    if (collectionView === 'videos') return activePhotos.filter((a) => a.type === 'video');
+    if (collectionView === 'trash') return trashedPhotos;
+    return activePhotos;
   }, [basePhotoAssets, collectionView, recentCutoff]);
 
   const docs = useMemo(
-    () => filteredAssets.filter((a) => a.type !== 'image' && a.type !== 'video'),
+    () => filteredAssets.filter((a) => a.type !== 'image' && a.type !== 'video' && !a.isDeleted),
     [filteredAssets]
   );
 
@@ -170,7 +173,7 @@ export default function DashboardPage() {
       setErr('');
       const [u, a] = await Promise.all([
         fetch(`${api}/api/storage/usage`, { credentials: 'include' }),
-        fetch(`${api}/api/assets?limit=1500`, { credentials: 'include' }),
+        fetch(`${api}/api/assets?limit=1500&includeTrash=true`, { credentials: 'include' }),
       ]);
       if (!u.ok || !a.ok) throw new Error('Chưa đăng nhập hoặc API lỗi');
       const usageData = await u.json();
@@ -225,6 +228,47 @@ export default function DashboardPage() {
     }
   }
 
+  async function moveSelectedToTrash() {
+    if (!selectedIds.length) return;
+    try {
+      const r = await fetch(`${api}/api/assets/bulk/trash`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      if (!r.ok) throw new Error('Xóa thất bại');
+      const data = await r.json();
+      setMsg(`Đã chuyển ${data.updated || 0} file vào thùng rác`);
+      setSelectedIds([]);
+      setSelectionMode(false);
+      await loadData();
+    } catch (e) {
+      setMsg(`Lỗi xóa: ${e.message || 'unknown'}`);
+    }
+  }
+
+  async function addSelectedToAlbum() {
+    if (!selectedIds.length) return;
+    const name = window.prompt('Tên album cần thêm vào:');
+    if (!name || !name.trim()) return;
+
+    try {
+      const r = await fetch(`${api}/api/assets/bulk/album`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds, albumName: name.trim() }),
+      });
+      if (!r.ok) throw new Error('Thêm vào album thất bại');
+      const data = await r.json();
+      setMsg(`Đã thêm ${data.updated || 0} file vào album "${name.trim()}"`);
+      await loadData();
+    } catch (e) {
+      setMsg(`Lỗi album: ${e.message || 'unknown'}`);
+    }
+  }
+
   function openPhoto(id) {
     const idx = albumFilteredPhotos.findIndex((x) => x.id === id);
     if (idx >= 0) setActiveIndex(idx);
@@ -258,7 +302,7 @@ export default function DashboardPage() {
         <div className="logo">HC Photos</div>
 
         <button className={`navItem ${tab === 'photos' && collectionView === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); setSelectionMode(false); setSelectedIds([]); }}>
-          <span className="ico">🖼</span><span>Tất cả ảnh/video</span><span className="count">{basePhotoAssets.length}</span>
+          <span className="ico">🖼</span><span>Tất cả ảnh/video</span><span className="count">{basePhotoAssets.filter((x) => !x.isDeleted).length}</span>
         </button>
 
         <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setTab('docs'); setSelectionMode(false); setSelectedIds([]); }}>
@@ -337,6 +381,13 @@ export default function DashboardPage() {
             <button className="ghost" onClick={() => { setSelectionMode((v) => !v); if (selectionMode) setSelectedIds([]); }}>
               {selectionMode ? `Thoát chọn (${selectedIds.length})` : 'Chọn nhiều'}
             </button>
+
+            {selectionMode && selectedIds.length > 0 && (
+              <>
+                <button className="ghost" onClick={addSelectedToAlbum}>Thêm vào album</button>
+                <button className="danger" onClick={moveSelectedToTrash}>Xóa</button>
+              </>
+            )}
           </div>
         </header>
 
@@ -476,6 +527,7 @@ export default function DashboardPage() {
         .actions { display: flex; gap: 8px; }
         .uploadBtn { background: #4f7cff; color: white; border-radius: 10px; padding: 10px 14px; cursor: pointer; font-weight: 600; }
         .ghost { background: transparent; border: 1px solid #4a4a4a; color: #ddd; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+        .danger { background: #4a1f27; border: 1px solid #6a2a38; color: #ffc7cf; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
         .info { color: #9dc8ff; margin-bottom: 8px; }
         .error { color: #ff9b9b; margin-bottom: 8px; }
         .hint { margin: 8px 0 14px; padding: 10px 12px; border: 1px solid #343434; border-radius: 10px; background: #1a1a1a; color: #cfcfcf; font-size: 13px; }

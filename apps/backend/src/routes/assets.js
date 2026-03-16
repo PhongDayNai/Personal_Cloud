@@ -3,7 +3,15 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { requireAuth } = require('../middleware/requireAuth');
-const { saveUploadedFile, listAssets, getAsset, getAbsPathFromAsset } = require('../lib/assets');
+const {
+  saveUploadedFile,
+  listAssets,
+  getAsset,
+  getAbsPathFromAsset,
+  listAlbums,
+  assignAlbum,
+  moveToTrash,
+} = require('../lib/assets');
 
 const router = express.Router();
 const tempDir = '/tmp/hcphotos-upload';
@@ -19,13 +27,37 @@ const upload = multer({
 
 router.get('/', requireAuth, (req, res) => {
   const limit = Number(req.query.limit || 200);
-  return res.json({ items: listAssets(limit) });
+  const includeTrash = String(req.query.includeTrash || 'false') === 'true';
+  const onlyTrash = String(req.query.onlyTrash || 'false') === 'true';
+  return res.json({ items: listAssets(limit, { includeTrash, onlyTrash }) });
 });
 
 router.post('/upload', requireAuth, upload.array('files', 50), async (req, res) => {
   const files = req.files || [];
   const saved = await Promise.all(files.map((f) => saveUploadedFile(f, req.user)));
   return res.json({ ok: true, count: saved.length, items: saved });
+});
+
+router.get('/albums', requireAuth, (_req, res) => {
+  return res.json({ items: listAlbums() });
+});
+
+router.post('/bulk/album', requireAuth, (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+  const albumName = String(req.body?.albumName || '').trim();
+  if (!ids.length) return res.status(400).json({ message: 'ids is required' });
+  if (!albumName) return res.status(400).json({ message: 'albumName is required' });
+
+  const result = assignAlbum(ids, albumName);
+  return res.json({ ok: true, ...result });
+});
+
+router.post('/bulk/trash', requireAuth, (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+  if (!ids.length) return res.status(400).json({ message: 'ids is required' });
+
+  const result = moveToTrash(ids);
+  return res.json({ ok: true, ...result });
 });
 
 router.get('/_media/original/:id', requireAuth, (req, res) => {
