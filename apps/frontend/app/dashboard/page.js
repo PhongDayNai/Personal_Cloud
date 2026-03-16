@@ -34,6 +34,11 @@ function monthLabel(iso) {
   return new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(d);
 }
 
+function yearLabel(iso) {
+  const d = iso ? new Date(iso) : new Date();
+  return String(d.getFullYear());
+}
+
 const LONG_PRESS_MS = 420;
 
 export default function DashboardPage() {
@@ -54,6 +59,8 @@ export default function DashboardPage() {
   const [docTypeFilter, setDocTypeFilter] = useState('all');
   const [collectionView, setCollectionView] = useState('all'); // all | recent | images | videos | trash
   const [albumsExpanded, setAlbumsExpanded] = useState(false);
+  const [groupMode, setGroupMode] = useState('month'); // month | year
+  const [expandedGroups, setExpandedGroups] = useState({});
 
   const longPressRef = useRef(null);
   const usageCardRef = useRef(null);
@@ -108,26 +115,26 @@ export default function DashboardPage() {
   const availableAlbums = useMemo(() => {
     const m = new Map();
     for (const p of photoAssets) {
-      const key = monthLabel(p.uploadedAt);
-      m.set(key, (m.get(key) || 0) + 1);
+      if (!p.albumName) continue;
+      m.set(p.albumName, (m.get(p.albumName) || 0) + 1);
     }
     return Array.from(m.entries());
   }, [photoAssets]);
 
   const albumFilteredPhotos = useMemo(() => {
     if (selectedAlbum === 'all') return photoAssets;
-    return photoAssets.filter((p) => monthLabel(p.uploadedAt) === selectedAlbum);
+    return photoAssets.filter((p) => p.albumName === selectedAlbum);
   }, [photoAssets, selectedAlbum]);
 
   const photoGroups = useMemo(() => {
     const m = new Map();
     for (const p of albumFilteredPhotos) {
-      const key = monthLabel(p.uploadedAt);
+      const key = groupMode === 'year' ? yearLabel(p.uploadedAt) : monthLabel(p.uploadedAt);
       if (!m.has(key)) m.set(key, []);
       m.get(key).push(p);
     }
     return Array.from(m.entries());
-  }, [albumFilteredPhotos]);
+  }, [albumFilteredPhotos, groupMode]);
 
   const active = activeIndex >= 0 ? albumFilteredPhotos[activeIndex] : null;
 
@@ -229,13 +236,17 @@ export default function DashboardPage() {
     };
   }
 
+  function toggleGroup(key) {
+    setExpandedGroups((prev) => ({ ...prev, [key]: !(prev[key] ?? true) }));
+  }
+
   return (
     <div className="shell">
       <aside className="sidebar">
         <div className="logo">HC Photos</div>
 
         <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setTab('docs'); setSelectionMode(false); setSelectedIds([]); }}>
-          📁 Tài liệu ({docs.length})
+          <span className="ico">📁</span><span>Tài liệu</span><span className="count">{docs.length}</span>
         </button>
 
         <div className="sectionTitle">Bộ sưu tập</div>
@@ -244,14 +255,17 @@ export default function DashboardPage() {
           className={`navItem ${albumsExpanded ? 'active' : ''}`}
           onClick={() => setAlbumsExpanded((v) => !v)}
         >
-          {albumsExpanded ? '▾' : '▸'} Album
+          <span className="ico">🗂</span>
+          <span>Album</span>
+          <span className="chev">{albumsExpanded ? '▾' : '▸'}</span>
         </button>
 
         {albumsExpanded && (
           <div className="subList">
             <button className={`subItem ${selectedAlbum === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); }}>
-              Tất cả ({photoAssets.length})
+              Tất cả
             </button>
+            {availableAlbums.length === 0 && <div className="subHint">Chưa có album thủ công</div>}
             {availableAlbums.map(([name, count]) => (
               <button key={name} className={`subItem ${selectedAlbum === name ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum(name); }}>
                 {name} ({count})
@@ -261,20 +275,20 @@ export default function DashboardPage() {
         )}
 
         <button className={`navItem ${tab === 'photos' && collectionView === 'recent' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('recent'); setSelectedAlbum('all'); }}>
-          🕒 Mới thêm gần đây
+          <span className="ico">🕒</span><span>Mới thêm gần đây</span>
         </button>
         <button className={`navItem ${tab === 'photos' && collectionView === 'images' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('images'); setSelectedAlbum('all'); }}>
-          🖼 Ảnh
+          <span className="ico">🖼</span><span>Ảnh</span>
         </button>
         <button className={`navItem ${tab === 'photos' && collectionView === 'videos' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('videos'); setSelectedAlbum('all'); }}>
-          🎬 Video
+          <span className="ico">🎬</span><span>Video</span>
         </button>
         <button className={`navItem ${tab === 'photos' && collectionView === 'trash' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('trash'); setSelectedAlbum('all'); }}>
-          🗑 Thùng rác
+          <span className="ico">🗑</span><span>Thùng rác</span>
         </button>
 
         <button className="navItem" onClick={() => usageCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}>
-          📊 Usage
+          <span className="ico">📊</span><span>Usage</span>
         </button>
 
         <div className="storageCard" ref={usageCardRef}>
@@ -319,33 +333,49 @@ export default function DashboardPage() {
 
         {tab === 'photos' && (
           <section>
+            <div className="groupToggleWrap">
+              <span className="groupLabel">Gom nhóm theo:</span>
+              <button className={`chip ${groupMode === 'month' ? 'active' : ''}`} onClick={() => setGroupMode('month')}>Tháng</button>
+              <button className={`chip ${groupMode === 'year' ? 'active' : ''}`} onClick={() => setGroupMode('year')}>Năm</button>
+            </div>
+
             {collectionView === 'recent' && <div className="hint">Đang hiển thị ảnh/video mới thêm trong 2 tuần gần đây.</div>}
             {collectionView === 'trash' && <div className="hint">Thùng rác chưa triển khai backend. Sẽ bổ sung soft-delete ở phase kế tiếp.</div>}
 
             {photoGroups.length === 0 && <div className="hint">Không có dữ liệu phù hợp.</div>}
 
-            {photoGroups.map(([month, items]) => (
-              <div key={month} className="monthBlock">
-                <div className="monthTitle">{month} · {items.length}</div>
-                <div className="grid">
-                  {items.map((a) => {
-                    const src = `${api}/api/assets/_media/original/${a.id}`;
-                    const picked = selectedIds.includes(a.id);
-                    return (
-                      <div key={a.id} className={`tile ${picked ? 'picked' : ''}`} {...cardHandlers(a, () => openPhoto(a.id))}>
-                        {a.type === 'image' ? (
-                          <img src={src} alt={a.originalName} className="thumb" />
-                        ) : (
-                          <video src={src} className="thumb" muted />
-                        )}
-                        <div className="caption">{a.originalName}</div>
-                        {picked && <div className="badge">✓</div>}
-                      </div>
-                    );
-                  })}
+            {photoGroups.map(([group, items]) => {
+              const isOpen = expandedGroups[group] ?? true;
+              return (
+                <div key={group} className="monthBlock">
+                  <button className="groupHeader" onClick={() => toggleGroup(group)}>
+                    <span>{isOpen ? '▾' : '▸'}</span>
+                    <span>{group}</span>
+                    <span className="groupCount">{items.length}</span>
+                  </button>
+
+                  {isOpen && (
+                    <div className="grid">
+                      {items.map((a) => {
+                        const src = `${api}/api/assets/_media/original/${a.id}`;
+                        const picked = selectedIds.includes(a.id);
+                        return (
+                          <div key={a.id} className={`tile ${picked ? 'picked' : ''}`} {...cardHandlers(a, () => openPhoto(a.id))}>
+                            {a.type === 'image' ? (
+                              <img src={src} alt={a.originalName} className="thumb" />
+                            ) : (
+                              <video src={src} className="thumb" muted />
+                            )}
+                            <div className="caption">{a.originalName}</div>
+                            {picked && <div className="badge">✓</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </section>
         )}
 
@@ -401,14 +431,18 @@ export default function DashboardPage() {
         .shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; background: #121212; color: #e7e7e7; }
         .sidebar { border-right: 1px solid #2a2a2a; padding: 20px 14px; position: sticky; top: 0; height: 100vh; }
         .logo { font-size: 20px; font-weight: 700; margin-bottom: 14px; }
-        .navItem { width: 100%; text-align: left; border: 0; padding: 11px 12px; border-radius: 12px; margin-bottom: 6px; background: transparent; color: #dcdcdc; cursor: pointer; }
-        .navItem:hover { background: #1f1f1f; }
-        .navItem.active { background: #2b3548; color: #9fc4ff; }
-        .sectionTitle { margin-top: 14px; margin-bottom: 6px; font-size: 12px; letter-spacing: 0.2px; opacity: 0.72; text-transform: uppercase; }
-        .subList { margin: 0 0 6px 8px; border-left: 1px solid #2f2f2f; padding-left: 8px; }
-        .subItem { width: 100%; text-align: left; border: 0; background: transparent; color: #cfcfcf; padding: 7px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
-        .subItem:hover { background: #1f1f1f; }
+        .navItem { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; border: 0; padding: 11px 12px; border-radius: 12px; margin-bottom: 6px; background: transparent; color: #dcdcdc; cursor: pointer; transition: all .18s ease; }
+        .navItem:hover { background: #1f1f1f; transform: translateX(1px); }
+        .navItem.active { background: linear-gradient(180deg,#2b3548,#25314a); color: #9fc4ff; box-shadow: inset 0 0 0 1px #3a4b6f; }
+        .ico { width: 18px; display: inline-flex; justify-content: center; }
+        .count { margin-left: auto; font-size: 12px; opacity: .8; }
+        .chev { margin-left: auto; opacity: .85; }
+        .sectionTitle { margin-top: 14px; margin-bottom: 6px; font-size: 12px; letter-spacing: 0.6px; opacity: 0.72; text-transform: uppercase; }
+        .subList { margin: 0 0 6px 8px; border-left: 1px solid #2f2f2f; padding-left: 8px; animation: fadeIn .2s ease; }
+        .subItem { width: 100%; text-align: left; border: 0; background: transparent; color: #cfcfcf; padding: 7px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .16s ease; }
+        .subItem:hover { background: #1f1f1f; transform: translateX(1px); }
         .subItem.active { background: #25314a; color: #aecdff; }
+        .subHint { font-size: 12px; opacity: .68; padding: 6px 8px; }
         .storageCard { margin-top: 10px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 12px; }
         .label { font-size: 12px; opacity: 0.75; margin-bottom: 8px; }
         .row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
@@ -425,8 +459,16 @@ export default function DashboardPage() {
         .error { color: #ff9b9b; margin-bottom: 8px; }
         .hint { margin: 8px 0 14px; padding: 10px 12px; border: 1px solid #343434; border-radius: 10px; background: #1a1a1a; color: #cfcfcf; font-size: 13px; }
 
+        .groupToggleWrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .groupLabel { font-size: 13px; opacity: .8; }
+        .chip { border: 1px solid #3a3a3a; background: #1b1b1b; color: #ddd; border-radius: 999px; padding: 6px 10px; cursor: pointer; font-size: 12px; }
+        .chip.active { background: #2b3548; border-color: #4a5f8c; color: #aed0ff; }
+
         .monthBlock { margin-bottom: 18px; }
         .monthTitle { font-size: 14px; font-weight: 700; margin-bottom: 10px; opacity: 0.92; }
+        .groupHeader { width: 100%; display: flex; align-items: center; gap: 8px; border: 1px solid #2f2f2f; background: #1a1a1a; color: #ddd; border-radius: 10px; padding: 9px 10px; margin-bottom: 10px; cursor: pointer; }
+        .groupHeader:hover { background: #1f1f1f; }
+        .groupCount { margin-left: auto; opacity: .8; font-size: 12px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
         .tile { background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 12px; overflow: hidden; cursor: pointer; position: relative; }
         .tile:hover { border-color: #4a4a4a; }
@@ -452,6 +494,8 @@ export default function DashboardPage() {
         .left { left: 16px; }
         .right { right: 16px; }
         .close { position: absolute; right: 16px; top: 16px; width: 44px; height: 44px; border-radius: 999px; border: 0; background: rgba(255,255,255,0.14); color: white; font-size: 18px; cursor: pointer; }
+
+        @keyframes fadeIn { from { opacity: .4; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
 
         @media (max-width: 900px) {
           .shell { grid-template-columns: 1fr; }
