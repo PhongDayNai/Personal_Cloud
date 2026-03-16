@@ -131,7 +131,7 @@ export default function DashboardPage() {
     if (!groupByTimeEnabled) return [['all', albumFilteredPhotos]];
     const m = new Map();
     for (const p of albumFilteredPhotos) {
-      const key = groupMode === 'year' ? yearLabel(p.uploadedAt) : monthLabel(p.uploadedAt);
+      const key = groupMode === 'year' ? yearLabel(p.takenAt || p.uploadedAt) : monthLabel(p.takenAt || p.uploadedAt);
       if (!m.has(key)) m.set(key, []);
       m.get(key).push(p);
     }

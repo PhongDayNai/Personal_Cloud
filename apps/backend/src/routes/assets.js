@@ -22,9 +22,9 @@ router.get('/', requireAuth, (req, res) => {
   return res.json({ items: listAssets(limit) });
 });
 
-router.post('/upload', requireAuth, upload.array('files', 50), (req, res) => {
+router.post('/upload', requireAuth, upload.array('files', 50), async (req, res) => {
   const files = req.files || [];
-  const saved = files.map((f) => saveUploadedFile(f, req.user));
+  const saved = await Promise.all(files.map((f) => saveUploadedFile(f, req.user)));
   return res.json({ ok: true, count: saved.length, items: saved });
 });
 

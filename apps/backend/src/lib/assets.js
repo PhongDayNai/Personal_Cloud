@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const exifr = require('exifr');
 
 const LIBRARY_PATH = process.env.MEDIA_LIBRARY_PATH || '/data/library';
 const ORIGINALS_ROOT = path.join(LIBRARY_PATH, 'originals');
@@ -27,7 +28,29 @@ function writeIndex(data) {
   fs.writeFileSync(INDEX_FILE, JSON.stringify(data, null, 2));
 }
 
-function saveUploadedFile(file, user) {
+async function detectTakenAt(absPath, mime) {
+  try {
+    if (!mime?.startsWith('image/')) return null;
+
+    const exif = await exifr.parse(absPath, {
+      tiff: true,
+      exif: true,
+      gps: false,
+      xmp: true,
+      iptc: true,
+    });
+
+    const dt = exif?.DateTimeOriginal || exif?.CreateDate || exif?.ModifyDate;
+    if (!dt) return null;
+    const d = new Date(dt);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+  } catch {
+    return null;
+  }
+}
+
+async function saveUploadedFile(file, user) {
   ensureIndex();
   const now = new Date();
   const yyyy = String(now.getUTCFullYear());
@@ -50,6 +73,9 @@ function saveUploadedFile(file, user) {
     }
   }
 
+  const uploadedAt = now.toISOString();
+  const takenAt = (await detectTakenAt(absPath, file.mimetype)) || uploadedAt;
+
   const relPath = path.relative(LIBRARY_PATH, absPath).replaceAll('\\', '/');
   const item = {
     id,
@@ -57,7 +83,8 @@ function saveUploadedFile(file, user) {
     mime: file.mimetype,
     size: file.size,
     owner: user?.sub || 'admin',
-    uploadedAt: now.toISOString(),
+    uploadedAt,
+    takenAt,
     relPath,
     ext,
     type: file.mimetype?.startsWith('image/') ? 'image' : file.mimetype?.startsWith('video/') ? 'video' : 'file',
@@ -72,12 +99,15 @@ function saveUploadedFile(file, user) {
 
 function listAssets(limit = 200) {
   const db = readIndex();
-  return db.items.slice(0, Math.max(1, Math.min(limit, 500)));
+  const items = db.items.map((x) => ({ ...x, takenAt: x.takenAt || x.uploadedAt }));
+  return items.slice(0, Math.max(1, Math.min(limit, 500)));
 }
 
 function getAsset(id) {
   const db = readIndex();
-  return db.items.find((x) => x.id === id) || null;
+  const item = db.items.find((x) => x.id === id) || null;
+  if (!item) return null;
+  return { ...item, takenAt: item.takenAt || item.uploadedAt };
 }
 
 function getAbsPathFromAsset(asset) {
