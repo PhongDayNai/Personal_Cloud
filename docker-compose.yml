@@ -1,0 +1,66 @@
+services:
+  fe:
+    container_name: hcphotos-fe
+    build:
+      context: ./apps/frontend
+    env_file:
+      - .env
+    environment:
+      - API_ORIGIN=${API_ORIGIN}
+      - NEXT_PUBLIC_API_ORIGIN=${NEXT_PUBLIC_API_ORIGIN}
+    ports:
+      - "127.0.0.1:${FE_PORT:-45173}:3000"
+    depends_on:
+      - be
+    restart: unless-stopped
+
+  be:
+    container_name: hcphotos-be
+    build:
+      context: ./apps/backend
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:${BE_PORT:-45174}:45174"
+    volumes:
+      - ${HOST_MEDIA_MOUNT_POINT:-./storage}:/data
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  worker:
+    container_name: hcphotos-worker
+    build:
+      context: ./apps/worker
+    env_file:
+      - .env
+    volumes:
+      - ${HOST_MEDIA_MOUNT_POINT:-./storage}:/data
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  db:
+    container_name: hcphotos-db
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hcphotos}
+      POSTGRES_USER: ${POSTGRES_USER:-hcphotos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hcphotos_local_dev}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    container_name: hcphotos-redis
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+  redis_data:
