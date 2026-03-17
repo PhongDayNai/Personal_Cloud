@@ -90,7 +90,7 @@ async function readErrorMessage(res) {
 
 const LONG_PRESS_MS = 420;
 
-function SmartVideo({ hlsSrc, mp4Src, className, controls = false, autoPlay = false, muted = false, preload = 'metadata', active = true }) {
+function SmartVideo({ hlsSrc, mp4Src, className, controls = false, autoPlay = false, muted = false, preload = 'metadata', active = true, onMeta }) {
   const ref = useRef(null);
   const [fallbackToMp4, setFallbackToMp4] = useState(false);
 
@@ -160,6 +160,14 @@ function SmartVideo({ hlsSrc, mp4Src, className, controls = false, autoPlay = fa
     }
   }, [active, autoPlay]);
 
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof onMeta !== 'function') return;
+    const onLoadedMeta = () => onMeta({ w: el.videoWidth || 0, h: el.videoHeight || 0 });
+    el.addEventListener('loadedmetadata', onLoadedMeta);
+    return () => el.removeEventListener('loadedmetadata', onLoadedMeta);
+  }, [onMeta]);
+
   return <video ref={ref} className={className} controls={controls} muted={muted} preload={preload} playsInline />;
 }
 
@@ -195,6 +203,7 @@ export default function DashboardPage() {
   const [groupMode, setGroupMode] = useState('month'); // month | year
   const [expandedGroups, setExpandedGroups] = useState({});
   const [mediaCacheIds, setMediaCacheIds] = useState([]);
+  const [activeMediaFit, setActiveMediaFit] = useState('contain');
 
   const longPressRef = useRef(null);
   const suppressClickRef = useRef(null);
@@ -297,6 +306,22 @@ export default function DashboardPage() {
   }, [albumFilteredPhotos, groupMode, groupByTimeEnabled]);
 
   const active = activeIndex >= 0 ? albumFilteredPhotos[activeIndex] : null;
+
+  useEffect(() => {
+    if (!active) return;
+    if (active.type === 'image') {
+      const src = `${api}/api/assets/_media/original/${active.id}`;
+      const img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth || 0;
+        const h = img.naturalHeight || 0;
+        setActiveMediaFit(h > w ? 'contain-tall' : 'contain-wide');
+      };
+      img.src = src;
+    } else {
+      setActiveMediaFit('contain');
+    }
+  }, [active?.id, active?.type, api]);
 
   useEffect(() => {
     if (!active || active.type !== 'video') return;
@@ -916,16 +941,17 @@ export default function DashboardPage() {
           <div className="stage" onClick={(e) => e.stopPropagation()}>
             <div className="stageTitle">{active.originalName}</div>
             {active.type === 'image' ? (
-              <img src={`${api}/api/assets/_media/original/${active.id}`} alt={active.originalName} className="full mediaEnter" />
+              <img src={`${api}/api/assets/_media/original/${active.id}`} alt={active.originalName} className={`full mediaEnter ${activeMediaFit}`} />
             ) : (
               <SmartVideo
                 hlsSrc={`${api}/api/assets/_media/hls/${active.id}/master.m3u8`}
                 mp4Src={`${api}/api/assets/_media/play/${active.id}`}
                 controls
                 autoPlay
-                className="full mediaEnter"
+                className={`full mediaEnter ${activeMediaFit}`}
                 preload="auto"
                 active
+                onMeta={({ w, h }) => setActiveMediaFit(h > w ? 'contain-tall' : 'contain-wide')}
               />
             )}
           </div>
@@ -1040,8 +1066,10 @@ export default function DashboardPage() {
         .mediaEnter { animation: mediaFadeIn .24s ease; }
         .stageTitle { margin-bottom: 2px; font-weight: 700; }
         .full { display: block; max-width: 100%; max-height: calc(100% - 36px); width: auto; height: auto; object-fit: contain; background: #000; }
-        video.full { width: auto; height: auto; max-width: 100%; max-height: calc(100% - 36px); }
-        img.full { width: auto; height: auto; max-width: 100%; max-height: calc(100% - 36px); }
+        .full.contain-tall { height: calc(100% - 36px); width: auto; max-width: 100%; max-height: calc(100% - 36px); }
+        .full.contain-wide { width: 100%; height: auto; max-width: 100%; max-height: calc(100% - 36px); }
+        video.full { max-width: 100%; max-height: calc(100% - 36px); }
+        img.full { max-width: 100%; max-height: calc(100% - 36px); }
         .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 50px; height: 50px; border-radius: 999px; border: 0; font-size: 34px; color: white; background: rgba(255,255,255,0.14); cursor: pointer; }
         .left { left: 16px; }
         .right { right: 16px; }
