@@ -59,6 +59,12 @@ function buildPlayPathById(id) {
   return path.join(playDir, `${id}.mp4`);
 }
 
+function buildHlsDirById(id) {
+  const hlsDir = path.join(LIBRARY_PATH, 'derived', 'hls', id);
+  fs.mkdirSync(hlsDir, { recursive: true });
+  return hlsDir;
+}
+
 function makeVideoPlayable(absPath, id) {
   const out = buildPlayPathById(id);
 
@@ -68,15 +74,15 @@ function makeVideoPlayable(absPath, id) {
     '-map', '0:v:0',
     '-map', '0:a?',
     '-c:v', 'libx264',
-    '-preset', 'veryfast',
-    '-crf', '22',
+    '-preset', 'faster',
+    '-crf', '18',
     '-pix_fmt', 'yuv420p',
-    '-maxrate', '4M',
-    '-bufsize', '8M',
+    '-maxrate', '10M',
+    '-bufsize', '20M',
     '-g', '48',
     '-keyint_min', '48',
     '-c:a', 'aac',
-    '-b:a', '128k',
+    '-b:a', '192k',
     '-movflags', '+faststart',
     out,
   ], { stdio: 'ignore' });
@@ -85,16 +91,64 @@ function makeVideoPlayable(absPath, id) {
   return null;
 }
 
-function schedulePlayableGeneration(id, absPath) {
+function makeVideoHlsHigh(absPath, id) {
+  const hlsDir = buildHlsDirById(id);
+  const streamPath = path.join(hlsDir, 'stream.m3u8');
+  const masterPath = path.join(hlsDir, 'master.m3u8');
+
+  const transcode = spawnSync('ffmpeg', [
+    '-y',
+    '-i', absPath,
+    '-map', '0:v:0',
+    '-map', '0:a?',
+    '-c:v', 'libx264',
+    '-preset', 'faster',
+    '-crf', '18',
+    '-pix_fmt', 'yuv420p',
+    '-maxrate', '10M',
+    '-bufsize', '20M',
+    '-g', '48',
+    '-keyint_min', '48',
+    '-sc_threshold', '0',
+    '-c:a', 'aac',
+    '-b:a', '192k',
+    '-hls_time', '4',
+    '-hls_playlist_type', 'vod',
+    '-hls_flags', 'independent_segments',
+    '-hls_segment_filename', path.join(hlsDir, 'seg_%05d.ts'),
+    streamPath,
+  ], { stdio: 'ignore' });
+
+  if (transcode.status !== 0 || !fs.existsSync(streamPath)) return null;
+
+  const master = [
+    '#EXTM3U',
+    '#EXT-X-VERSION:3',
+    '#EXT-X-STREAM-INF:BANDWIDTH=12000000,AVERAGE-BANDWIDTH=8000000,RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2"',
+    'stream.m3u8',
+    '',
+  ].join('\n');
+  fs.writeFileSync(masterPath, master);
+
+  return {
+    hlsDir,
+    masterPath,
+  };
+}
+
+function scheduleVideoDerivatives(id, absPath) {
   setTimeout(() => {
     try {
       const playable = makeVideoPlayable(absPath, id);
-      if (!playable) return;
+      const hls = makeVideoHlsHigh(absPath, id);
 
       const db = readIndex();
       const item = db.items.find((x) => x.id === id);
       if (!item) return;
-      item.playRelPath = path.relative(LIBRARY_PATH, playable).replaceAll('\\', '/');
+
+      if (playable) item.playRelPath = path.relative(LIBRARY_PATH, playable).replaceAll('\\', '/');
+      if (hls?.masterPath) item.hlsRelPath = path.relative(LIBRARY_PATH, hls.masterPath).replaceAll('\\', '/');
+
       writeIndex(db);
     } catch {}
   }, 0);
@@ -128,7 +182,6 @@ async function saveUploadedFile(file, user) {
 
   const relPath = path.relative(LIBRARY_PATH, absPath).replaceAll('\\', '/');
   const isVideo = file.mimetype?.startsWith('video/');
-  let playRelPath = null;
 
   const item = {
     id,
@@ -139,7 +192,8 @@ async function saveUploadedFile(file, user) {
     uploadedAt,
     takenAt,
     relPath,
-    playRelPath,
+    playRelPath: null,
+    hlsRelPath: null,
     ext,
     albumName: null,
     albumNames: [],
@@ -152,7 +206,7 @@ async function saveUploadedFile(file, user) {
   db.items.unshift(item);
   writeIndex(db);
 
-  if (isVideo) schedulePlayableGeneration(id, absPath);
+  if (isVideo) scheduleVideoDerivatives(id, absPath);
 
   return item;
 }
@@ -164,6 +218,7 @@ function normalizeItem(x) {
     albumName: x.albumName || null,
     albumNames: Array.isArray(x.albumNames) ? x.albumNames : (x.albumName ? [x.albumName] : []),
     playRelPath: x.playRelPath || null,
+    hlsRelPath: x.hlsRelPath || null,
     isDeleted: Boolean(x.isDeleted),
     deletedAt: x.deletedAt || null,
   };
@@ -194,6 +249,17 @@ function getAbsPathFromAsset(asset) {
 function getPlayableAbsPathFromAsset(asset) {
   if (!asset.playRelPath) return null;
   return path.join(LIBRARY_PATH, asset.playRelPath);
+}
+
+function getHlsAbsPathFromAsset(asset) {
+  if (!asset.hlsRelPath) return null;
+  return path.join(LIBRARY_PATH, asset.hlsRelPath);
+}
+
+function getHlsDirAbsPathFromAsset(asset) {
+  const hls = getHlsAbsPathFromAsset(asset);
+  if (!hls) return null;
+  return path.dirname(hls);
 }
 
 function listAlbums() {
@@ -330,6 +396,14 @@ function purgeDeleted(ids = []) {
       try { if (fs.existsSync(playAbs)) fs.unlinkSync(playAbs); } catch {}
     }
 
+    if (item.hlsRelPath) {
+      const hlsAbs = path.join(LIBRARY_PATH, item.hlsRelPath);
+      try {
+        const hlsDir = path.dirname(hlsAbs);
+        if (fs.existsSync(hlsDir)) fs.rmSync(hlsDir, { recursive: true, force: true });
+      } catch {}
+    }
+
     removed += 1;
     return false;
   });
@@ -344,6 +418,8 @@ module.exports = {
   getAsset,
   getAbsPathFromAsset,
   getPlayableAbsPathFromAsset,
+  getHlsAbsPathFromAsset,
+  getHlsDirAbsPathFromAsset,
   listAlbums,
   assignAlbum,
   moveToTrash,

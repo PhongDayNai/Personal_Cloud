@@ -41,6 +41,79 @@ function yearLabel(iso) {
 
 const LONG_PRESS_MS = 420;
 
+function SmartVideo({ hlsSrc, mp4Src, className, controls = false, autoPlay = false, muted = false, preload = 'metadata', active = true }) {
+  const ref = useRef(null);
+  const [fallbackToMp4, setFallbackToMp4] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    let hls;
+    let cancelled = false;
+
+    async function setup() {
+      if (fallbackToMp4 || !hlsSrc) {
+        el.src = mp4Src;
+        return;
+      }
+
+      if (el.canPlayType('application/vnd.apple.mpegurl')) {
+        el.src = hlsSrc;
+        return;
+      }
+
+      try {
+        const mod = await import('hls.js');
+        const Hls = mod.default;
+        if (!Hls.isSupported()) {
+          el.src = mp4Src;
+          return;
+        }
+
+        if (cancelled) return;
+        hls = new Hls({
+          maxBufferLength: 120,
+          maxMaxBufferLength: 300,
+          backBufferLength: 90,
+          enableWorker: true,
+          startLevel: -1,
+        });
+        hls.on(Hls.Events.ERROR, (_evt, data) => {
+          if (data?.fatal) {
+            try { hls.destroy(); } catch {}
+            setFallbackToMp4(true);
+          }
+        });
+        hls.loadSource(hlsSrc);
+        hls.attachMedia(el);
+      } catch {
+        el.src = mp4Src;
+      }
+    }
+
+    setup();
+
+    return () => {
+      cancelled = true;
+      try { if (hls) hls.destroy(); } catch {}
+    };
+  }, [hlsSrc, mp4Src, fallbackToMp4]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (active && autoPlay) {
+      const p = el.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } else {
+      el.pause();
+    }
+  }, [active, autoPlay]);
+
+  return <video ref={ref} className={className} controls={controls} muted={muted} preload={preload} playsInline />;
+}
+
 export default function DashboardPage() {
   const api = useMemo(() => getApiOrigin(), []);
 
@@ -66,6 +139,7 @@ export default function DashboardPage() {
   const [groupByTimeEnabled, setGroupByTimeEnabled] = useState(false);
   const [groupMode, setGroupMode] = useState('month'); // month | year
   const [expandedGroups, setExpandedGroups] = useState({});
+  const [mediaCacheIds, setMediaCacheIds] = useState([]);
 
   const longPressRef = useRef(null);
   const suppressClickRef = useRef(null);
@@ -147,6 +221,18 @@ export default function DashboardPage() {
   }, [albumFilteredPhotos, groupMode, groupByTimeEnabled]);
 
   const active = activeIndex >= 0 ? albumFilteredPhotos[activeIndex] : null;
+
+  useEffect(() => {
+    if (!active || active.type !== 'video') return;
+    const ids = [active.id];
+    if (albumFilteredPhotos[activeIndex - 1]?.type === 'video') ids.push(albumFilteredPhotos[activeIndex - 1].id);
+    if (albumFilteredPhotos[activeIndex + 1]?.type === 'video') ids.push(albumFilteredPhotos[activeIndex + 1].id);
+
+    setMediaCacheIds((prev) => {
+      const merged = [...new Set([...prev, ...ids])];
+      return merged.slice(-12);
+    });
+  }, [active?.id, active?.type, activeIndex, albumFilteredPhotos]);
 
   function clearLongPress() {
     if (longPressRef.current) {
@@ -567,7 +653,7 @@ export default function DashboardPage() {
                             {a.type === 'image' ? (
                               <img src={srcOriginal} alt={a.originalName} className="thumb" />
                             ) : (
-                              <video src={srcPlay} className="thumb" muted />
+                              <video src={srcPlay} className="thumb" muted preload="metadata" />
                             )}
                             <div className="caption">{a.originalName}</div>
                             {picked && <div className="badge">✓</div>}
@@ -620,9 +706,17 @@ export default function DashboardPage() {
           <div className="stage" onClick={(e) => e.stopPropagation()}>
             <div className="stageTitle">{active.originalName}</div>
             {active.type === 'image' ? (
-              <img src={`${api}/api/assets/_media/original/${active.id}`} alt={active.originalName} className="full" />
+              <img src={`${api}/api/assets/_media/original/${active.id}`} alt={active.originalName} className="full mediaEnter" />
             ) : (
-              <video src={`${api}/api/assets/_media/play/${active.id}`} controls autoPlay className="full" />
+              <SmartVideo
+                hlsSrc={`${api}/api/assets/_media/hls/${active.id}/master.m3u8`}
+                mp4Src={`${api}/api/assets/_media/play/${active.id}`}
+                controls
+                autoPlay
+                className="full mediaEnter"
+                preload="auto"
+                active
+              />
             )}
           </div>
           <button className="nav right" onClick={(e) => { e.stopPropagation(); setActiveIndex((i) => (i >= albumFilteredPhotos.length - 1 ? 0 : i + 1)); }}>›</button>
@@ -654,6 +748,12 @@ export default function DashboardPage() {
           )}
         </div>
       )}
+
+      <div className="mediaCache" aria-hidden>
+        {mediaCacheIds.map((id) => (
+          <video key={id} src={`${api}/api/assets/_media/play/${id}`} preload="auto" muted playsInline />
+        ))}
+      </div>
 
       <style jsx>{`
         .shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; background: radial-gradient(circle at 20% 0%, #1b2230 0%, #121212 45%); color: #e7e7e7; }
@@ -721,9 +821,12 @@ export default function DashboardPage() {
         .docMeta { font-size: 12px; opacity: 0.8; }
 
         .viewer { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; display: flex; align-items: center; justify-content: center; animation: fadeIn .18s ease; }
-        .stage { width: calc(100vw - 140px); height: calc(100vh - 120px); text-align: center; display: grid; align-items: center; justify-items: center; }
-        .stageTitle { margin-bottom: 8px; font-weight: 700; }
-        .full { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; background: #000; }
+        .stage { width: calc(100vw - 140px); height: calc(100vh - 120px); text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; }
+        .mediaEnter { animation: mediaFadeIn .24s ease; }
+        .stageTitle { margin-bottom: 2px; font-weight: 700; }
+        .full { display: block; max-width: 100%; max-height: calc(100% - 36px); width: auto; height: auto; object-fit: contain; background: #000; }
+        video.full { width: auto; height: auto; max-width: 100%; max-height: calc(100% - 36px); }
+        img.full { width: auto; height: auto; max-width: 100%; max-height: calc(100% - 36px); }
         .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 50px; height: 50px; border-radius: 999px; border: 0; font-size: 34px; color: white; background: rgba(255,255,255,0.14); cursor: pointer; }
         .left { left: 16px; }
         .right { right: 16px; }
@@ -737,8 +840,10 @@ export default function DashboardPage() {
         .albumCreate { width: 100%; background: #263a5d; border: 1px solid #4a6fa8; color: #dce9ff; border-radius: 8px; padding: 8px; margin-bottom: 8px; cursor: pointer; }
         .albumList { display: grid; gap: 6px; }
         .albumItem { text-align: left; background: #1b1b1b; border: 1px solid #333; color: #ddd; border-radius: 8px; padding: 8px; cursor: pointer; }
+        .mediaCache { position: fixed; width: 0; height: 0; overflow: hidden; opacity: 0; pointer-events: none; }
 
         @keyframes fadeIn { from { opacity: .4; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes mediaFadeIn { from { opacity: .2; transform: scale(.995); } to { opacity: 1; transform: scale(1); } }
 
         @media (max-width: 900px) {
           .shell { grid-template-columns: 1fr; }

@@ -10,6 +10,8 @@ const {
   getAsset,
   getAbsPathFromAsset,
   getPlayableAbsPathFromAsset,
+  getHlsAbsPathFromAsset,
+  getHlsDirAbsPathFromAsset,
   listAlbums,
   assignAlbum,
   moveToTrash,
@@ -148,6 +150,46 @@ router.post('/bulk/purge', requireAuth, (req, res) => {
   return res.json({ ok: true, ...result });
 });
 
+router.get('/_media/hls/:id/master.m3u8', requireAuth, (req, res) => {
+  const asset = getAsset(req.params.id);
+  if (!asset) return res.status(404).json({ message: 'Not found' });
+
+  const hlsMasterAbs = getHlsAbsPathFromAsset(asset);
+  if (!hlsMasterAbs || !fs.existsSync(hlsMasterAbs)) {
+    return res.status(404).json({ message: 'HLS not ready' });
+  }
+
+  res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  return res.sendFile(hlsMasterAbs);
+});
+
+router.get('/_media/hls/:id/:segment', requireAuth, (req, res) => {
+  const asset = getAsset(req.params.id);
+  if (!asset) return res.status(404).json({ message: 'Not found' });
+
+  const hlsDir = getHlsDirAbsPathFromAsset(asset);
+  if (!hlsDir || !fs.existsSync(hlsDir)) return res.status(404).json({ message: 'HLS not ready' });
+
+  const seg = path.basename(req.params.segment || '');
+  if (!seg || (!seg.endsWith('.ts') && !seg.endsWith('.m3u8'))) {
+    return res.status(400).json({ message: 'Invalid segment' });
+  }
+
+  const abs = path.join(hlsDir, seg);
+  if (!fs.existsSync(abs)) return res.status(404).json({ message: 'Segment missing' });
+
+  if (seg.endsWith('.m3u8')) {
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+  } else {
+    res.setHeader('Content-Type', 'video/mp2t');
+    res.setHeader('Cache-Control', 'private, max-age=86400, immutable');
+  }
+
+  return res.sendFile(abs);
+});
+
 router.get('/_media/play/:id', requireAuth, (req, res) => {
   const asset = getAsset(req.params.id);
   if (!asset) return res.status(404).json({ message: 'Not found' });
@@ -159,6 +201,7 @@ router.get('/_media/play/:id', requireAuth, (req, res) => {
 
   res.setHeader('Content-Type', 'video/mp4');
   res.setHeader('Content-Disposition', `inline; filename="${path.basename(asset.originalName || 'video')}.mp4"`);
+  res.setHeader('Cache-Control', 'private, max-age=86400, immutable');
   return res.sendFile(playAbs);
 });
 
@@ -171,6 +214,7 @@ router.get('/_media/original/:id', requireAuth, (req, res) => {
 
   res.setHeader('Content-Type', asset.mime || 'application/octet-stream');
   res.setHeader('Content-Disposition', `inline; filename="${path.basename(asset.originalName || 'file')}"`);
+  res.setHeader('Cache-Control', 'private, max-age=3600');
   return res.sendFile(abs);
 });
 
