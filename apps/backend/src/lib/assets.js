@@ -84,6 +84,21 @@ function makeVideoPlayable(absPath, id) {
   return null;
 }
 
+function schedulePlayableGeneration(id, absPath) {
+  setTimeout(() => {
+    try {
+      const playable = makeVideoPlayable(absPath, id);
+      if (!playable) return;
+
+      const db = readIndex();
+      const item = db.items.find((x) => x.id === id);
+      if (!item) return;
+      item.playRelPath = path.relative(LIBRARY_PATH, playable).replaceAll('\\', '/');
+      writeIndex(db);
+    } catch {}
+  }, 0);
+}
+
 async function saveUploadedFile(file, user) {
   ensureIndex();
   const now = new Date();
@@ -113,10 +128,6 @@ async function saveUploadedFile(file, user) {
   const relPath = path.relative(LIBRARY_PATH, absPath).replaceAll('\\', '/');
   const isVideo = file.mimetype?.startsWith('video/');
   let playRelPath = null;
-  if (isVideo) {
-    const playable = makeVideoPlayable(absPath, id);
-    if (playable) playRelPath = path.relative(LIBRARY_PATH, playable).replaceAll('\\', '/');
-  }
 
   const item = {
     id,
@@ -138,6 +149,8 @@ async function saveUploadedFile(file, user) {
   const db = readIndex();
   db.items.unshift(item);
   writeIndex(db);
+
+  if (isVideo) schedulePlayableGeneration(id, absPath);
 
   return item;
 }
