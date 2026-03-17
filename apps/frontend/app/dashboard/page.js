@@ -66,6 +66,28 @@ function yearLabel(iso) {
   return String(d.getFullYear());
 }
 
+function inferUploadKind(file) {
+  const t = (file?.type || '').toLowerCase();
+  const name = (file?.name || '').toLowerCase();
+  if (t.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|heic|avif)$/.test(name)) return 'ảnh';
+  if (t.startsWith('video/') || /\.(mp4|mov|mkv|webm|avi|m4v)$/.test(name)) return 'video';
+  return 'tài liệu/file khác';
+}
+
+async function readErrorMessage(res) {
+  try {
+    const data = await res.clone().json();
+    if (data?.message) return String(data.message);
+    return JSON.stringify(data);
+  } catch {
+    try {
+      const txt = await res.text();
+      if (txt) return txt.slice(0, 300);
+    } catch {}
+  }
+  return 'không có chi tiết từ server';
+}
+
 const LONG_PRESS_MS = 420;
 
 function SmartVideo({ hlsSrc, mp4Src, className, controls = false, autoPlay = false, muted = false, preload = 'metadata', active = true }) {
@@ -366,7 +388,10 @@ export default function DashboardPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fileName: file.name, mime: file.type || 'application/octet-stream', totalSize: file.size }),
     });
-    if (!init.ok) throw new Error('Không tạo được phiên upload chunk');
+    if (!init.ok) {
+      const detail = await readErrorMessage(init);
+      throw new Error(`Khởi tạo upload chunk thất bại (HTTP ${init.status}): ${detail}`);
+    }
     const initData = await init.json();
     const uploadId = initData.uploadId;
 
@@ -386,14 +411,20 @@ export default function DashboardPage() {
         credentials: 'include',
         body: fd,
       });
-      if (!r.ok) throw new Error(`Chunk ${i + 1}/${totalChunks} lỗi`);
+      if (!r.ok) {
+        const detail = await readErrorMessage(r);
+        throw new Error(`Chunk ${i + 1}/${totalChunks} thất bại (HTTP ${r.status}): ${detail}`);
+      }
     }
 
     const done = await fetch(`${api}/api/assets/upload-chunk/${uploadId}/complete`, {
       method: 'POST',
       credentials: 'include',
     });
-    if (!done.ok) throw new Error('Hoàn tất upload chunk thất bại');
+    if (!done.ok) {
+      const detail = await readErrorMessage(done);
+      throw new Error(`Hoàn tất chunk thất bại (HTTP ${done.status}): ${detail}`);
+    }
     return done.json();
   }
 
@@ -401,12 +432,18 @@ export default function DashboardPage() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    try {
-      setMsg(`Đang upload 0/${files.length} file`);
-      let done = 0;
+    const failed = [];
+    let done = 0;
 
-      for (const file of files) {
-        const big = file.size > 90 * 1024 * 1024; // >90MB dùng chunk tránh Cloudflare limit
+    for (let idx = 0; idx < files.length; idx++) {
+      const file = files[idx];
+      const kind = inferUploadKind(file);
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+      const big = file.size > 90 * 1024 * 1024; // >90MB dùng chunk tránh Cloudflare limit
+
+      try {
+        setMsg(`Đang upload ${done}/${files.length} · File ${idx + 1}: ${file.name} (${kind}, ${sizeMb}MB, ${big ? 'chunk' : 'thường'})`);
+
         if (big) {
           await uploadLargeFileByChunks(file);
         } else {
@@ -417,19 +454,33 @@ export default function DashboardPage() {
             credentials: 'include',
             body: form,
           });
-          if (!r.ok) throw new Error(`Upload thất bại: ${file.name}`);
+          if (!r.ok) {
+            const detail = await readErrorMessage(r);
+            throw new Error(`Upload thường thất bại (HTTP ${r.status}): ${detail}`);
+          }
           await r.json();
         }
-        done += 1;
-        setMsg(`Đã upload ${done}/${files.length} file`);
-      }
 
-      setMsg(`Upload xong ${files.length} file`);
-      await loadData();
-      e.target.value = '';
-    } catch (ex) {
-      setMsg(`Lỗi upload: ${ex.message || 'unknown'}`);
+        done += 1;
+        setMsg(`✅ ${file.name} (${kind}) upload thành công · ${done}/${files.length}`);
+      } catch (ex) {
+        const reason = ex?.message || 'unknown';
+        failed.push({ index: idx + 1, name: file.name, kind, sizeMb, mode: big ? 'chunk' : 'thường', reason });
+        setMsg(`❌ Lỗi file ${idx + 1}/${files.length}: ${file.name} (${kind}) · ${reason}`);
+      }
     }
+
+    await loadData();
+    e.target.value = '';
+
+    if (failed.length === 0) {
+      setMsg(`Upload xong ${done}/${files.length} file`);
+      return;
+    }
+
+    const lines = failed.map((f) => `- #${f.index} ${f.name} | ${f.kind} | ${f.sizeMb}MB | ${f.mode} | ${f.reason}`);
+    setErr(`Upload có lỗi (${failed.length}/${files.length} file):\n${lines.join('\n')}`);
+    setMsg(`Upload hoàn tất có lỗi: thành công ${done}/${files.length}, lỗi ${failed.length}.`);
   }
 
   async function moveSelectedToTrash() {
