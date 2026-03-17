@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const exifr = require('exifr');
+const { spawnSync } = require('child_process');
 
 const LIBRARY_PATH = process.env.MEDIA_LIBRARY_PATH || '/data/library';
 const ORIGINALS_ROOT = path.join(LIBRARY_PATH, 'originals');
@@ -52,6 +53,34 @@ async function detectTakenAt(absPath, mime) {
   }
 }
 
+function buildPlayPathById(id) {
+  const playDir = path.join(LIBRARY_PATH, 'derived', 'play');
+  fs.mkdirSync(playDir, { recursive: true });
+  return path.join(playDir, `${id}.mp4`);
+}
+
+function makeVideoPlayable(absPath, id) {
+  const out = buildPlayPathById(id);
+
+  const remux = spawnSync('ffmpeg', ['-y', '-i', absPath, '-c', 'copy', '-movflags', '+faststart', out], { stdio: 'ignore' });
+  if (remux.status === 0 && fs.existsSync(out)) return out;
+
+  const transcode = spawnSync('ffmpeg', [
+    '-y',
+    '-i', absPath,
+    '-c:v', 'libx264',
+    '-preset', 'veryfast',
+    '-crf', '23',
+    '-c:a', 'aac',
+    '-b:a', '128k',
+    '-movflags', '+faststart',
+    out,
+  ], { stdio: 'ignore' });
+
+  if (transcode.status === 0 && fs.existsSync(out)) return out;
+  return null;
+}
+
 async function saveUploadedFile(file, user) {
   ensureIndex();
   const now = new Date();
@@ -79,6 +108,13 @@ async function saveUploadedFile(file, user) {
   const takenAt = (await detectTakenAt(absPath, file.mimetype)) || uploadedAt;
 
   const relPath = path.relative(LIBRARY_PATH, absPath).replaceAll('\\', '/');
+  const isVideo = file.mimetype?.startsWith('video/');
+  let playRelPath = null;
+  if (isVideo) {
+    const playable = makeVideoPlayable(absPath, id);
+    if (playable) playRelPath = path.relative(LIBRARY_PATH, playable).replaceAll('\\', '/');
+  }
+
   const item = {
     id,
     originalName: file.originalname,
@@ -88,6 +124,7 @@ async function saveUploadedFile(file, user) {
     uploadedAt,
     takenAt,
     relPath,
+    playRelPath,
     ext,
     albumName: null,
     isDeleted: false,
@@ -107,6 +144,7 @@ function normalizeItem(x) {
     ...x,
     takenAt: x.takenAt || x.uploadedAt,
     albumName: x.albumName || null,
+    playRelPath: x.playRelPath || null,
     isDeleted: Boolean(x.isDeleted),
     deletedAt: x.deletedAt || null,
   };
@@ -132,6 +170,11 @@ function getAsset(id) {
 
 function getAbsPathFromAsset(asset) {
   return path.join(LIBRARY_PATH, asset.relPath);
+}
+
+function getPlayableAbsPathFromAsset(asset) {
+  if (!asset.playRelPath) return null;
+  return path.join(LIBRARY_PATH, asset.playRelPath);
 }
 
 function listAlbums() {
@@ -260,6 +303,11 @@ function purgeDeleted(ids = []) {
       if (fs.existsSync(abs)) fs.unlinkSync(abs);
     } catch {}
 
+    if (item.playRelPath) {
+      const playAbs = path.join(LIBRARY_PATH, item.playRelPath);
+      try { if (fs.existsSync(playAbs)) fs.unlinkSync(playAbs); } catch {}
+    }
+
     removed += 1;
     return false;
   });
@@ -273,6 +321,7 @@ module.exports = {
   listAssets,
   getAsset,
   getAbsPathFromAsset,
+  getPlayableAbsPathFromAsset,
   listAlbums,
   assignAlbum,
   moveToTrash,

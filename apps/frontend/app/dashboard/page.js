@@ -482,14 +482,15 @@ export default function DashboardPage() {
                   {isOpen && (
                     <div className="grid">
                       {items.map((a) => {
-                        const src = `${api}/api/assets/_media/original/${a.id}`;
+                        const srcOriginal = `${api}/api/assets/_media/original/${a.id}`;
+                        const srcPlay = `${api}/api/assets/_media/play/${a.id}`;
                         const picked = selectedIds.includes(a.id);
                         return (
                           <div key={a.id} className={`tile ${picked ? 'picked' : ''}`} {...cardHandlers(a, () => openPhoto(a.id))}>
                             {a.type === 'image' ? (
-                              <img src={src} alt={a.originalName} className="thumb" />
+                              <img src={srcOriginal} alt={a.originalName} className="thumb" />
                             ) : (
-                              <video src={src} className="thumb" muted />
+                              <video src={srcPlay} className="thumb" muted />
                             )}
                             <div className="caption">{a.originalName}</div>
                             {picked && <div className="badge">✓</div>}
@@ -544,7 +545,7 @@ export default function DashboardPage() {
             {active.type === 'image' ? (
               <img src={`${api}/api/assets/_media/original/${active.id}`} alt={active.originalName} className="full" />
             ) : (
-              <video src={`${api}/api/assets/_media/original/${active.id}`} controls autoPlay className="full" />
+              <video src={`${api}/api/assets/_media/play/${active.id}`} controls autoPlay className="full" />
             )}
           </div>
           <button className="nav right" onClick={(e) => { e.stopPropagation(); setActiveIndex((i) => (i >= albumFilteredPhotos.length - 1 ? 0 : i + 1)); }}>›</button>
@@ -553,8 +554,8 @@ export default function DashboardPage() {
       )}
 
       <style jsx>{`
-        .shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; background: #121212; color: #e7e7e7; }
-        .sidebar { border-right: 1px solid #2a2a2a; padding: 20px 14px; position: sticky; top: 0; height: 100vh; }
+        .shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; background: radial-gradient(circle at 20% 0%, #1b2230 0%, #121212 45%); color: #e7e7e7; }
+        .sidebar { border-right: 1px solid #2a2a2a; padding: 20px 14px; position: sticky; top: 0; height: 100vh; backdrop-filter: blur(6px); background: rgba(16,16,16,0.78); }
         .logo { font-size: 20px; font-weight: 700; margin-bottom: 14px; }
         .navItem { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; border: 0; padding: 11px 12px; border-radius: 12px; margin-bottom: 6px; background: transparent; color: #dcdcdc; cursor: pointer; transition: all .18s ease; }
         .navItem:hover { background: #1f1f1f; transform: translateX(1px); }
@@ -574,13 +575,17 @@ export default function DashboardPage() {
         .bar { height: 10px; border-radius: 99px; overflow: hidden; background: #2d2d2d; margin: 6px 0; }
         .barFill { height: 100%; background: linear-gradient(90deg, #7daeff, #4d7cff); }
 
-        .main { padding: 18px 24px 28px; }
-        .topbar { display: flex; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-        .search { flex: 1; max-width: 650px; background: #232323; border: 1px solid #343434; color: #f2f2f2; border-radius: 24px; padding: 12px 16px; outline: none; }
+        .main { padding: 18px 24px 28px; animation: fadeIn .26s ease; }
+        .topbar { display: flex; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 14px; position: sticky; top: 8px; z-index: 4; background: rgba(18,18,18,.72); backdrop-filter: blur(8px); border: 1px solid #2d2d2d; border-radius: 14px; padding: 10px; }
+        .search { flex: 1; max-width: 650px; background: #232323; border: 1px solid #343434; color: #f2f2f2; border-radius: 24px; padding: 12px 16px; outline: none; transition: border-color .18s ease, box-shadow .18s ease; }
+        .search:focus { border-color: #4d6ca1; box-shadow: 0 0 0 3px rgba(77,108,161,.22); }
         .actions { display: flex; gap: 8px; }
-        .uploadBtn { background: #4f7cff; color: white; border-radius: 10px; padding: 10px 14px; cursor: pointer; font-weight: 600; }
-        .ghost { background: transparent; border: 1px solid #4a4a4a; color: #ddd; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
-        .danger { background: #4a1f27; border: 1px solid #6a2a38; color: #ffc7cf; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+        .uploadBtn { background: linear-gradient(180deg,#5f8dff,#4872e4); color: white; border-radius: 10px; padding: 10px 14px; cursor: pointer; font-weight: 600; transition: transform .16s ease, filter .16s ease; }
+        .uploadBtn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+        .ghost { background: transparent; border: 1px solid #4a4a4a; color: #ddd; border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: all .16s ease; }
+        .ghost:hover { border-color: #6684b9; color: #dfe9ff; transform: translateY(-1px); }
+        .danger { background: #4a1f27; border: 1px solid #6a2a38; color: #ffc7cf; border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: all .16s ease; }
+        .danger:hover { background: #5a2631; transform: translateY(-1px); }
         .info { color: #9dc8ff; margin-bottom: 8px; }
         .error { color: #ff9b9b; margin-bottom: 8px; }
         .hint { margin: 8px 0 14px; padding: 10px 12px; border: 1px solid #343434; border-radius: 10px; background: #1a1a1a; color: #cfcfcf; font-size: 13px; }
@@ -596,8 +601,8 @@ export default function DashboardPage() {
         .groupHeader:hover { background: #1f1f1f; }
         .groupCount { margin-left: auto; opacity: .8; font-size: 12px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
-        .tile { background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 12px; overflow: hidden; cursor: pointer; position: relative; }
-        .tile:hover { border-color: #4a4a4a; }
+        .tile { background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 12px; overflow: hidden; cursor: pointer; position: relative; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+        .tile:hover { border-color: #5a6f98; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.28); }
         .tile.picked { border-color: #7daeff; }
         .thumb { width: 100%; height: 150px; object-fit: cover; display: block; background: #000; }
         .caption { padding: 8px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -607,12 +612,13 @@ export default function DashboardPage() {
         .docFilters select { background: #232323; color: #eee; border: 1px solid #3a3a3a; border-radius: 8px; padding: 8px 10px; }
         .docGroup { margin-bottom: 18px; }
         .docGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
-        .docCard { background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 12px; padding: 10px; cursor: pointer; position: relative; }
+        .docCard { background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 12px; padding: 10px; cursor: pointer; position: relative; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+        .docCard:hover { transform: translateY(-1px); border-color: #5a6f98; box-shadow: 0 6px 18px rgba(0,0,0,.24); }
         .docCard.picked { border-color: #7daeff; }
         .docName { font-weight: 700; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .docMeta { font-size: 12px; opacity: 0.8; }
 
-        .viewer { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .viewer { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; display: flex; align-items: center; justify-content: center; animation: fadeIn .18s ease; }
         .stage { width: 92vw; max-width: 1300px; max-height: 90vh; text-align: center; }
         .stageTitle { margin-bottom: 8px; font-weight: 700; }
         .full { max-width: 100%; max-height: 82vh; object-fit: contain; background: #000; }

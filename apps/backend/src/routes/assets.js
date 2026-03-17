@@ -8,6 +8,7 @@ const {
   listAssets,
   getAsset,
   getAbsPathFromAsset,
+  getPlayableAbsPathFromAsset,
   listAlbums,
   assignAlbum,
   moveToTrash,
@@ -76,6 +77,20 @@ router.post('/bulk/purge', requireAuth, (req, res) => {
 
   const result = purgeDeleted(ids);
   return res.json({ ok: true, ...result });
+});
+
+router.get('/_media/play/:id', requireAuth, (req, res) => {
+  const asset = getAsset(req.params.id);
+  if (!asset) return res.status(404).json({ message: 'Not found' });
+
+  const playAbs = getPlayableAbsPathFromAsset(asset);
+  if (!playAbs || !fs.existsSync(playAbs)) {
+    return res.redirect(`/api/assets/_media/original/${asset.id}`);
+  }
+
+  res.setHeader('Content-Type', 'video/mp4');
+  res.setHeader('Content-Disposition', `inline; filename="${path.basename(asset.originalName || 'video')}.mp4"`);
+  return res.sendFile(playAbs);
 });
 
 router.get('/_media/original/:id', requireAuth, (req, res) => {
