@@ -1068,7 +1068,15 @@ export default function DashboardPage() {
         .full { display: block; max-width: 100%; max-height: calc(100% - 36px); width: auto; height: auto; object-fit: contain; background: #000; }
         .full.contain-tall { height: calc(100% - 36px); width: auto; max-width: 100%; max-height: calc(100% - 36px); }
         .full.contain-wide { width: 100%; height: auto; max-width: 100%; max-height: calc(100% - 36px); }
-        video.full { max-width: 100%; max-height: calc(100% - 36px); }
+        video.full,
+        video.full.contain-tall,
+        video.full.contain-wide {
+          height: calc(100% - 36px);
+          width: auto !important;
+          max-width: 100%;
+          max-height: calc(100% - 36px);
+          object-fit: contain;
+        }
         img.full { max-width: 100%; max-height: calc(100% - 36px); }
         .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 50px; height: 50px; border-radius: 999px; border: 0; font-size: 34px; color: white; background: rgba(255,255,255,0.14); cursor: pointer; }
         .left { left: 16px; }
