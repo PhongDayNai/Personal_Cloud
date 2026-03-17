@@ -100,6 +100,26 @@ function makeVideoPlayable(absPath, id) {
   return null;
 }
 
+function probeVideoSize(absPath) {
+  try {
+    const p = spawnSync('ffprobe', [
+      '-v', 'error',
+      '-select_streams', 'v:0',
+      '-show_entries', 'stream=width,height',
+      '-of', 'json',
+      absPath,
+    ], { encoding: 'utf8' });
+
+    if (p.status !== 0 || !p.stdout) return null;
+    const json = JSON.parse(p.stdout);
+    const s = json?.streams?.[0];
+    const w = Number(s?.width || 0);
+    const h = Number(s?.height || 0);
+    if (w > 0 && h > 0) return { w, h };
+  } catch {}
+  return null;
+}
+
 function makeVideoHlsHigh(absPath, id) {
   const hlsDir = buildHlsDirById(id);
   const streamPath = path.join(hlsDir, 'stream.m3u8');
@@ -130,10 +150,13 @@ function makeVideoHlsHigh(absPath, id) {
 
   if (transcode.status !== 0 || !fs.existsSync(streamPath)) return null;
 
+  const size = probeVideoSize(streamPath) || probeVideoSize(absPath);
+  const res = size ? `${size.w}x${size.h}` : '1920x1080';
+
   const master = [
     '#EXTM3U',
     '#EXT-X-VERSION:3',
-    '#EXT-X-STREAM-INF:BANDWIDTH=12000000,AVERAGE-BANDWIDTH=8000000,RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2"',
+    `#EXT-X-STREAM-INF:BANDWIDTH=12000000,AVERAGE-BANDWIDTH=8000000,RESOLUTION=${res},CODECS="avc1.640028,mp4a.40.2"`,
     'stream.m3u8',
     '',
   ].join('\n');
