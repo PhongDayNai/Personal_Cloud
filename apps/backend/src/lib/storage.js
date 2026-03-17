@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { listAssets } = require('./assets');
 
 const cache = {
   at: 0,
@@ -64,6 +65,17 @@ function getStorageUsage() {
   const derivedBytes = dirSizeBytes(derived);
   const trashBytes = dirSizeBytes(trash);
 
+  const processingCount = listAssets(5000, { includeTrash: true }).filter((x) => x.processingStatus === 'processing' && !x.isDeleted).length;
+
+  if (processingCount > 0 && cache.value) {
+    return {
+      ...cache.value,
+      processingCount,
+      updatedAt: cache.value.updatedAt,
+      note: 'usage frozen while processing media',
+    };
+  }
+
   const usage = {
     mountPoint,
     totalBytes,
@@ -75,6 +87,7 @@ function getStorageUsage() {
       derivedBytes,
       trashBytes,
     },
+    processingCount,
     updatedAt: new Date().toISOString(),
   };
 

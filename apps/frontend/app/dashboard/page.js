@@ -770,6 +770,7 @@ export default function DashboardPage() {
                     <div className="row"><span>Tổng ổ</span><b>{fmtBytes(usage.totalBytes)}</b></div>
                     <div className="bar"><div className="barFill" style={{ width: `${Math.min(100, appPercent)}%` }} /></div>
                     <small>HC Photos: {appPercent}% · Filesystem: {usage.usedPercent}%</small>
+                    {Number(usage.processingCount || 0) > 0 && <small>Đang xử lý media: {usage.processingCount} file · tạm giữ nguyên số usage</small>}
                   </>
                 );
               })()}
@@ -860,6 +861,7 @@ export default function DashboardPage() {
                               <video src={srcPlay} className="thumb" muted preload="metadata" />
                             )}
                             <div className="caption">{a.originalName}</div>
+                            {a.type === 'video' && a.processingStatus === 'processing' && <div className="processingBadge">Đang xử lý…</div>}
                             {picked && <div className="badge">✓</div>}
                           </div>
                         );
@@ -1021,6 +1023,7 @@ export default function DashboardPage() {
         .thumb { width: 100%; height: 150px; object-fit: cover; display: block; background: #000; }
         .caption { padding: 8px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .badge { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 999px; background: #7daeff; color: #0b1b35; display: grid; place-items: center; font-weight: 700; }
+        .processingBadge { position: absolute; left: 8px; top: 8px; font-size: 11px; background: rgba(255,166,0,.9); color: #231400; padding: 4px 7px; border-radius: 999px; font-weight: 700; }
 
         .docFilters { margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
         .docFilters select { background: #232323; color: #eee; border: 1px solid #3a3a3a; border-radius: 8px; padding: 8px 10px; }

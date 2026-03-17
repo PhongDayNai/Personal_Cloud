@@ -9,6 +9,7 @@ const ORIGINALS_ROOT = path.join(LIBRARY_PATH, 'originals');
 const TRASH_ROOT = process.env.MEDIA_TRASH_PATH || path.join(LIBRARY_PATH, 'trash');
 const INDEX_DIR = path.join(LIBRARY_PATH, 'index');
 const INDEX_FILE = path.join(INDEX_DIR, 'assets.json');
+let lastGoodIndex = { items: [] };
 
 function ensureIndex() {
   fs.mkdirSync(ORIGINALS_ROOT, { recursive: true });
@@ -20,15 +21,23 @@ function ensureIndex() {
 function readIndex() {
   ensureIndex();
   try {
-    return JSON.parse(fs.readFileSync(INDEX_FILE, 'utf8'));
+    const parsed = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf8'));
+    if (parsed && Array.isArray(parsed.items)) {
+      lastGoodIndex = parsed;
+      return parsed;
+    }
+    return lastGoodIndex;
   } catch {
-    return { items: [] };
+    return lastGoodIndex;
   }
 }
 
 function writeIndex(data) {
   ensureIndex();
-  fs.writeFileSync(INDEX_FILE, JSON.stringify(data, null, 2));
+  const tmp = path.join(INDEX_DIR, `assets.json.tmp-${process.pid}-${Date.now()}`);
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, INDEX_FILE);
+  lastGoodIndex = data;
 }
 
 async function detectTakenAt(absPath, mime) {
@@ -148,6 +157,8 @@ function scheduleVideoDerivatives(id, absPath) {
 
       if (playable) item.playRelPath = path.relative(LIBRARY_PATH, playable).replaceAll('\\', '/');
       if (hls?.masterPath) item.hlsRelPath = path.relative(LIBRARY_PATH, hls.masterPath).replaceAll('\\', '/');
+      item.processingStatus = 'ready';
+      item.processingFinishedAt = new Date().toISOString();
 
       writeIndex(db);
     } catch {}
@@ -194,6 +205,9 @@ async function saveUploadedFile(file, user) {
     relPath,
     playRelPath: null,
     hlsRelPath: null,
+    processingStatus: isVideo ? 'processing' : 'ready',
+    processingStartedAt: isVideo ? uploadedAt : null,
+    processingFinishedAt: null,
     ext,
     albumName: null,
     albumNames: [],
@@ -221,6 +235,9 @@ function normalizeItem(x) {
     docProjectNames: Array.isArray(x.docProjectNames) ? x.docProjectNames : (x.docProjectName ? [x.docProjectName] : []),
     playRelPath: x.playRelPath || null,
     hlsRelPath: x.hlsRelPath || null,
+    processingStatus: x.processingStatus || 'ready',
+    processingStartedAt: x.processingStartedAt || null,
+    processingFinishedAt: x.processingFinishedAt || null,
     isDeleted: Boolean(x.isDeleted),
     deletedAt: x.deletedAt || null,
   };
