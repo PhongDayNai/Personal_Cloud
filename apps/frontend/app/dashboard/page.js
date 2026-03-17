@@ -134,6 +134,7 @@ export default function DashboardPage() {
   const [albums, setAlbums] = useState([]);
   const [albumQuery, setAlbumQuery] = useState('');
   const [docTypeFilter, setDocTypeFilter] = useState('all');
+  const [docCollectionView, setDocCollectionView] = useState('all'); // all | trash
   const [collectionView, setCollectionView] = useState('all'); // all | recent | images | videos | trash
   const [albumsExpanded, setAlbumsExpanded] = useState(false);
   const [groupByTimeEnabled, setGroupByTimeEnabled] = useState(false);
@@ -176,12 +177,19 @@ export default function DashboardPage() {
     [filteredAssets]
   );
 
-  const docTypes = useMemo(() => Array.from(new Set(docs.map(docTypeOf))).sort(), [docs]);
+  const trashedDocs = useMemo(
+    () => filteredAssets.filter((a) => a.type !== 'image' && a.type !== 'video' && a.isDeleted),
+    [filteredAssets]
+  );
+
+  const docsBase = useMemo(() => (docCollectionView === 'trash' ? trashedDocs : docs), [docCollectionView, docs, trashedDocs]);
+
+  const docTypes = useMemo(() => Array.from(new Set(docsBase.map(docTypeOf))).sort(), [docsBase]);
 
   const docsFiltered = useMemo(() => {
-    if (docTypeFilter === 'all') return docs;
-    return docs.filter((d) => docTypeOf(d) === docTypeFilter);
-  }, [docs, docTypeFilter]);
+    if (docTypeFilter === 'all') return docsBase;
+    return docsBase.filter((d) => docTypeOf(d) === docTypeFilter);
+  }, [docsBase, docTypeFilter]);
 
   const docsGrouped = useMemo(() => {
     const m = new Map();
@@ -512,47 +520,62 @@ export default function DashboardPage() {
           <span className="ico">🖼</span><span>Tất cả ảnh/video</span><span className="count">{basePhotoAssets.filter((x) => !x.isDeleted).length}</span>
         </button>
 
-        <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setTab('docs'); setSelectionMode(false); setSelectedIds([]); }}>
+        <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setTab('docs'); setDocCollectionView('all'); setSelectionMode(false); setSelectedIds([]); }}>
           <span className="ico">📁</span><span>Tài liệu</span><span className="count">{docs.length}</span>
         </button>
 
-        <div className="sectionTitle">Bộ sưu tập</div>
+        <div className="sectionWrap">
+          <div className="sectionTitle">{tab === 'photos' ? 'Bộ sưu tập' : 'Khu vực tài liệu'}</div>
 
-        <button
-          className={`navItem ${albumsExpanded ? 'active' : ''}`}
-          onClick={() => setAlbumsExpanded((v) => !v)}
-        >
-          <span className="ico">🗂</span>
-          <span>Album</span>
-          <span className="chev">{albumsExpanded ? '▾' : '▸'}</span>
-        </button>
-
-        {albumsExpanded && (
-          <div className="subList">
-            <button className={`subItem ${selectedAlbum === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); }}>
-              Tất cả
-            </button>
-            {availableAlbums.length === 0 && <div className="subHint">Chưa có album thủ công</div>}
-            {availableAlbums.map(([name, count]) => (
-              <button key={name} className={`subItem ${selectedAlbum === name ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum(name); }}>
-                {name} ({count})
+          {tab === 'photos' ? (
+            <div className="sectionBody sectionIn">
+              <button
+                className={`navItem ${albumsExpanded ? 'active' : ''}`}
+                onClick={() => setAlbumsExpanded((v) => !v)}
+              >
+                <span className="ico">🗂</span>
+                <span>Album</span>
+                <span className="chev">{albumsExpanded ? '▾' : '▸'}</span>
               </button>
-            ))}
-          </div>
-        )}
 
-        <button className={`navItem ${tab === 'photos' && collectionView === 'recent' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('recent'); setSelectedAlbum('all'); }}>
-          <span className="ico">🕒</span><span>Mới thêm gần đây</span>
-        </button>
-        <button className={`navItem ${tab === 'photos' && collectionView === 'images' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('images'); setSelectedAlbum('all'); }}>
-          <span className="ico">🖼</span><span>Ảnh</span>
-        </button>
-        <button className={`navItem ${tab === 'photos' && collectionView === 'videos' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('videos'); setSelectedAlbum('all'); }}>
-          <span className="ico">🎬</span><span>Video</span>
-        </button>
-        <button className={`navItem ${tab === 'photos' && collectionView === 'trash' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('trash'); setSelectedAlbum('all'); }}>
-          <span className="ico">🗑</span><span>Thùng rác</span><span className="count">{basePhotoAssets.filter((x) => x.isDeleted).length}</span>
-        </button>
+              {albumsExpanded && (
+                <div className="subList">
+                  <button className={`subItem ${selectedAlbum === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); }}>
+                    Tất cả
+                  </button>
+                  {availableAlbums.length === 0 && <div className="subHint">Chưa có album thủ công</div>}
+                  {availableAlbums.map(([name, count]) => (
+                    <button key={name} className={`subItem ${selectedAlbum === name ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum(name); }}>
+                      {name} ({count})
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button className={`navItem ${tab === 'photos' && collectionView === 'recent' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('recent'); setSelectedAlbum('all'); }}>
+                <span className="ico">🕒</span><span>Mới thêm gần đây</span>
+              </button>
+              <button className={`navItem ${tab === 'photos' && collectionView === 'images' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('images'); setSelectedAlbum('all'); }}>
+                <span className="ico">🖼</span><span>Ảnh</span>
+              </button>
+              <button className={`navItem ${tab === 'photos' && collectionView === 'videos' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('videos'); setSelectedAlbum('all'); }}>
+                <span className="ico">🎬</span><span>Video</span>
+              </button>
+              <button className={`navItem ${tab === 'photos' && collectionView === 'trash' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('trash'); setSelectedAlbum('all'); }}>
+                <span className="ico">🗑</span><span>Thùng rác</span><span className="count">{basePhotoAssets.filter((x) => x.isDeleted).length}</span>
+              </button>
+            </div>
+          ) : (
+            <div className="sectionBody sectionIn">
+              <button className={`navItem ${tab === 'docs' && docCollectionView === 'all' ? 'active' : ''}`} onClick={() => { setTab('docs'); setDocCollectionView('all'); setSelectionMode(false); setSelectedIds([]); }}>
+                <span className="ico">📄</span><span>Tài liệu đang có</span><span className="count">{docs.length}</span>
+              </button>
+              <button className={`navItem ${tab === 'docs' && docCollectionView === 'trash' ? 'active' : ''}`} onClick={() => { setTab('docs'); setDocCollectionView('trash'); setSelectionMode(false); setSelectedIds([]); }}>
+                <span className="ico">🗑</span><span>Tài liệu trong thùng rác</span><span className="count">{trashedDocs.length}</span>
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="storageCard" ref={usageCardRef}>
           <div className="label">Dung lượng</div>
@@ -591,9 +614,9 @@ export default function DashboardPage() {
 
             {selectionMode && selectedIds.length > 0 && (
               <>
-                {collectionView !== 'trash' ? (
+                {(tab === 'photos' && collectionView !== 'trash') || (tab === 'docs' && docCollectionView !== 'trash') ? (
                   <>
-                    <button className="ghost" onClick={addSelectedToAlbum}>Thêm vào album</button>
+                    {tab === 'photos' && <button className="ghost" onClick={addSelectedToAlbum}>Thêm vào album</button>}
                     <button className="danger" onClick={moveSelectedToTrash}>Xóa</button>
                   </>
                 ) : (
@@ -611,7 +634,7 @@ export default function DashboardPage() {
         {err && <div className="error">{err}</div>}
 
         {tab === 'photos' && (
-          <section>
+          <section className="contentPane">
             <div className="groupToggleWrap">
               <button className={`chip ${groupByTimeEnabled ? 'active' : ''}`} onClick={() => setGroupByTimeEnabled((v) => !v)}>
                 {groupByTimeEnabled ? 'Tắt gom nhóm theo thời gian' : 'Bật gom nhóm theo thời gian'}
@@ -669,7 +692,7 @@ export default function DashboardPage() {
         )}
 
         {tab === 'docs' && (
-          <section>
+          <section className="contentPane">
             <div className="docFilters">
               <span>Loại file:</span>
               <select value={docTypeFilter} onChange={(e) => setDocTypeFilter(e.target.value)}>
@@ -677,6 +700,9 @@ export default function DashboardPage() {
                 {docTypes.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
+
+            {docCollectionView === 'trash' && <div className="hint">Thùng rác tài liệu: chọn nhiều để khôi phục hoặc xóa vĩnh viễn.</div>}
+            {docsGrouped.length === 0 && <div className="hint">Không có tài liệu phù hợp.</div>}
 
             {docsGrouped.map(([group, items]) => (
               <div key={group} className="docGroup">
@@ -765,7 +791,10 @@ export default function DashboardPage() {
         .ico { width: 18px; display: inline-flex; justify-content: center; }
         .count { margin-left: auto; font-size: 12px; opacity: .8; }
         .chev { margin-left: auto; opacity: .85; }
+        .sectionWrap { margin-top: 8px; }
         .sectionTitle { margin-top: 14px; margin-bottom: 6px; font-size: 12px; letter-spacing: 0.6px; opacity: 0.72; text-transform: uppercase; }
+        .sectionBody { animation: sectionSlideIn .22s ease; transform-origin: top left; }
+        .sectionIn { will-change: opacity, transform; }
         .subList { margin: 0 0 6px 8px; border-left: 1px solid #2f2f2f; padding-left: 8px; animation: fadeIn .2s ease; }
         .subItem { width: 100%; text-align: left; border: 0; background: transparent; color: #cfcfcf; padding: 7px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .16s ease; }
         .subItem:hover { background: #1f1f1f; transform: translateX(1px); }
@@ -778,6 +807,7 @@ export default function DashboardPage() {
         .barFill { height: 100%; background: linear-gradient(90deg, #7daeff, #4d7cff); }
 
         .main { padding: 18px 24px 28px; animation: fadeIn .26s ease; }
+        .contentPane { animation: contentSwitch .24s ease; }
         .topbar { display: flex; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 14px; position: sticky; top: 8px; z-index: 4; background: rgba(18,18,18,.72); backdrop-filter: blur(8px); border: 1px solid #2d2d2d; border-radius: 14px; padding: 10px; }
         .search { flex: 1; max-width: 650px; background: #232323; border: 1px solid #343434; color: #f2f2f2; border-radius: 24px; padding: 12px 16px; outline: none; transition: border-color .18s ease, box-shadow .18s ease; }
         .search:focus { border-color: #4d6ca1; box-shadow: 0 0 0 3px rgba(77,108,161,.22); }
@@ -844,6 +874,8 @@ export default function DashboardPage() {
 
         @keyframes fadeIn { from { opacity: .4; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes mediaFadeIn { from { opacity: .2; transform: scale(.995); } to { opacity: 1; transform: scale(1); } }
+        @keyframes sectionSlideIn { from { opacity: .15; transform: translateY(4px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes contentSwitch { from { opacity: .2; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
         @media (max-width: 900px) {
           .shell { grid-template-columns: 1fr; }
