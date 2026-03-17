@@ -56,6 +56,10 @@ export default function DashboardPage() {
   const [selectedIds, setSelectedIds] = useState([]);
 
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [showInfo, setShowInfo] = useState(false);
+  const [showAlbumPicker, setShowAlbumPicker] = useState(false);
+  const [albums, setAlbums] = useState([]);
+  const [albumQuery, setAlbumQuery] = useState('');
   const [docTypeFilter, setDocTypeFilter] = useState('all');
   const [collectionView, setCollectionView] = useState('all'); // all | recent | images | videos | trash
   const [albumsExpanded, setAlbumsExpanded] = useState(false);
@@ -233,8 +237,6 @@ export default function DashboardPage() {
         body: fd,
       });
       if (!r.ok) throw new Error(`Chunk ${i + 1}/${totalChunks} lỗi`);
-
-      setMsg(`Đang upload ${file.name}: ${i + 1}/${totalChunks}`);
     }
 
     const done = await fetch(`${api}/api/assets/upload-chunk/${uploadId}/complete`, {
@@ -250,7 +252,8 @@ export default function DashboardPage() {
     if (!files.length) return;
 
     try {
-      setMsg(`Đang upload ${files.length} file...`);
+      setMsg(`Đang upload 0/${files.length} file`);
+      let done = 0;
 
       for (const file of files) {
         const big = file.size > 90 * 1024 * 1024; // >90MB dùng chunk tránh Cloudflare limit
@@ -267,6 +270,8 @@ export default function DashboardPage() {
           if (!r.ok) throw new Error(`Upload thất bại: ${file.name}`);
           await r.json();
         }
+        done += 1;
+        setMsg(`Đã upload ${done}/${files.length} file`);
       }
 
       setMsg(`Upload xong ${files.length} file`);
@@ -359,6 +364,30 @@ export default function DashboardPage() {
     } catch (e) {
       setMsg(`Lỗi album: ${e.message || 'unknown'}`);
     }
+  }
+
+  async function loadAlbums() {
+    const r = await fetch(`${api}/api/assets/albums`, { credentials: 'include' });
+    if (!r.ok) throw new Error('Không tải được album');
+    const data = await r.json();
+    setAlbums(data.items || []);
+  }
+
+  async function addActiveToAlbum(name) {
+    if (!active?.id) return;
+    const albumName = (name || '').trim();
+    if (!albumName) return;
+
+    const r = await fetch(`${api}/api/assets/bulk/album`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [active.id], albumName }),
+    });
+    if (!r.ok) throw new Error('Thêm album thất bại');
+    await loadData();
+    await loadAlbums();
+    setShowAlbumPicker(false);
   }
 
   function openPhoto(id) {
@@ -597,7 +626,32 @@ export default function DashboardPage() {
             )}
           </div>
           <button className="nav right" onClick={(e) => { e.stopPropagation(); setActiveIndex((i) => (i >= albumFilteredPhotos.length - 1 ? 0 : i + 1)); }}>›</button>
-          <button className="close" onClick={(e) => { e.stopPropagation(); setActiveIndex(-1); }}>✕</button>
+          <button className="topBtn infoBtn" onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}>i</button>
+          <button className="topBtn albumBtn" onClick={async (e) => { e.stopPropagation(); try { await loadAlbums(); setShowAlbumPicker((v) => !v); } catch (er) { setMsg('Không tải được album'); } }}>＋</button>
+          <button className="close" onClick={(e) => { e.stopPropagation(); setActiveIndex(-1); setShowInfo(false); setShowAlbumPicker(false); }}>✕</button>
+
+          {showInfo && active && (
+            <div className="infoPanel" onClick={(e) => e.stopPropagation()}>
+              <div><b>{active.originalName}</b></div>
+              <div>Loại: {active.mime}</div>
+              <div>Dung lượng: {fmtBytes(active.size)}</div>
+              <div>Taken: {active.takenAt || '-'}</div>
+              <div>Upload: {active.uploadedAt || '-'}</div>
+              <div>Album: {(active.albumNames || []).join(', ') || '-'}</div>
+            </div>
+          )}
+
+          {showAlbumPicker && (
+            <div className="albumPanel" onClick={(e) => e.stopPropagation()}>
+              <input className="albumSearch" placeholder="Tìm album..." value={albumQuery} onChange={(e) => setAlbumQuery(e.target.value)} />
+              <button className="albumCreate" onClick={() => addActiveToAlbum(albumQuery || window.prompt('Tên album mới:') || '')}>+ Tạo album mới</button>
+              <div className="albumList">
+                {albums.filter((a) => a.name.toLowerCase().includes(albumQuery.toLowerCase())).map((a) => (
+                  <button key={a.name} className="albumItem" onClick={() => addActiveToAlbum(a.name)}>{a.name} ({a.count})</button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -667,13 +721,22 @@ export default function DashboardPage() {
         .docMeta { font-size: 12px; opacity: 0.8; }
 
         .viewer { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; display: flex; align-items: center; justify-content: center; animation: fadeIn .18s ease; }
-        .stage { width: 92vw; max-width: 1300px; max-height: 90vh; text-align: center; }
+        .stage { width: calc(100vw - 140px); height: calc(100vh - 120px); text-align: center; display: grid; align-items: center; justify-items: center; }
         .stageTitle { margin-bottom: 8px; font-weight: 700; }
-        .full { max-width: 100%; max-height: 82vh; object-fit: contain; background: #000; }
+        .full { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; background: #000; }
         .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 50px; height: 50px; border-radius: 999px; border: 0; font-size: 34px; color: white; background: rgba(255,255,255,0.14); cursor: pointer; }
         .left { left: 16px; }
         .right { right: 16px; }
+        .topBtn { position: absolute; top: 16px; width: 42px; height: 42px; border-radius: 999px; border: 0; background: rgba(255,255,255,0.14); color: white; font-size: 18px; cursor: pointer; }
+        .infoBtn { right: 112px; }
+        .albumBtn { right: 64px; }
         .close { position: absolute; right: 16px; top: 16px; width: 44px; height: 44px; border-radius: 999px; border: 0; background: rgba(255,255,255,0.14); color: white; font-size: 18px; cursor: pointer; }
+        .infoPanel { position: absolute; right: 16px; top: 68px; width: 320px; background: rgba(20,20,20,.95); border: 1px solid #3a3a3a; border-radius: 12px; padding: 12px; display: grid; gap: 6px; font-size: 13px; }
+        .albumPanel { position: absolute; right: 16px; top: 68px; width: 320px; max-height: 60vh; overflow: auto; background: rgba(20,20,20,.95); border: 1px solid #3a3a3a; border-radius: 12px; padding: 10px; }
+        .albumSearch { width: 100%; background: #1f1f1f; border: 1px solid #3b3b3b; color: #fff; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+        .albumCreate { width: 100%; background: #263a5d; border: 1px solid #4a6fa8; color: #dce9ff; border-radius: 8px; padding: 8px; margin-bottom: 8px; cursor: pointer; }
+        .albumList { display: grid; gap: 6px; }
+        .albumItem { text-align: left; background: #1b1b1b; border: 1px solid #333; color: #ddd; border-radius: 8px; padding: 8px; cursor: pointer; }
 
         @keyframes fadeIn { from { opacity: .4; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
 

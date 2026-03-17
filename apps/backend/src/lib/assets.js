@@ -62,9 +62,6 @@ function buildPlayPathById(id) {
 function makeVideoPlayable(absPath, id) {
   const out = buildPlayPathById(id);
 
-  const remux = spawnSync('ffmpeg', ['-y', '-i', absPath, '-c', 'copy', '-movflags', '+faststart', out], { stdio: 'ignore' });
-  if (remux.status === 0 && fs.existsSync(out)) return out;
-
   const transcode = spawnSync('ffmpeg', [
     '-y',
     '-i', absPath,
@@ -74,6 +71,8 @@ function makeVideoPlayable(absPath, id) {
     '-preset', 'slow',
     '-crf', '18',
     '-pix_fmt', 'yuv420p',
+    '-maxrate', '10M',
+    '-bufsize', '20M',
     '-c:a', 'aac',
     '-b:a', '192k',
     '-movflags', '+faststart',
@@ -141,6 +140,7 @@ async function saveUploadedFile(file, user) {
     playRelPath,
     ext,
     albumName: null,
+    albumNames: [],
     isDeleted: false,
     deletedAt: null,
     type: file.mimetype?.startsWith('image/') ? 'image' : file.mimetype?.startsWith('video/') ? 'video' : 'file',
@@ -160,6 +160,7 @@ function normalizeItem(x) {
     ...x,
     takenAt: x.takenAt || x.uploadedAt,
     albumName: x.albumName || null,
+    albumNames: Array.isArray(x.albumNames) ? x.albumNames : (x.albumName ? [x.albumName] : []),
     playRelPath: x.playRelPath || null,
     isDeleted: Boolean(x.isDeleted),
     deletedAt: x.deletedAt || null,
@@ -198,8 +199,8 @@ function listAlbums() {
   const m = new Map();
   for (const it of db.items.map(normalizeItem)) {
     if (it.isDeleted) continue;
-    if (!it.albumName) continue;
-    m.set(it.albumName, (m.get(it.albumName) || 0) + 1);
+    const names = Array.isArray(it.albumNames) ? it.albumNames : (it.albumName ? [it.albumName] : []);
+    for (const n of names) m.set(n, (m.get(n) || 0) + 1);
   }
   return Array.from(m.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -215,7 +216,10 @@ function assignAlbum(ids = [], albumName = '') {
   for (const it of db.items) {
     if (!idSet.has(it.id)) continue;
     if (it.isDeleted) continue;
-    it.albumName = name;
+    const names = Array.isArray(it.albumNames) ? it.albumNames : (it.albumName ? [it.albumName] : []);
+    if (!names.includes(name)) names.push(name);
+    it.albumNames = names;
+    it.albumName = names[0] || null;
     updated += 1;
   }
 
