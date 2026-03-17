@@ -176,7 +176,7 @@ router.get('/_media/hls/:id/master.m3u8', requireAuth, (req, res) => {
   }
 
   res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-  res.setHeader('Cache-Control', 'private, max-age=300');
+  res.setHeader('Cache-Control', 'no-store');
   return res.sendFile(hlsMasterAbs);
 });
 
@@ -197,7 +197,7 @@ router.get('/_media/hls/:id/:segment', requireAuth, (req, res) => {
 
   if (seg.endsWith('.m3u8')) {
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.setHeader('Cache-Control', 'no-store');
   } else {
     res.setHeader('Content-Type', 'video/mp2t');
     res.setHeader('Cache-Control', 'private, max-age=86400, immutable');

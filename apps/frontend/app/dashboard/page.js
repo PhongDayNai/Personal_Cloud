@@ -168,7 +168,17 @@ function SmartVideo({ hlsSrc, mp4Src, className, controls = false, autoPlay = fa
     return () => el.removeEventListener('loadedmetadata', onLoadedMeta);
   }, [onMeta]);
 
-  return <video ref={ref} className={className} controls={controls} muted={muted} preload={preload} playsInline />;
+  return (
+    <video
+      ref={ref}
+      className={className}
+      controls={controls}
+      muted={muted}
+      preload={preload}
+      playsInline
+      style={{ width: 'auto', height: 'calc(100% - 36px)', maxWidth: '100%', maxHeight: 'calc(100% - 36px)', objectFit: 'contain' }}
+    />
+  );
 }
 
 export default function DashboardPage() {
@@ -944,7 +954,7 @@ export default function DashboardPage() {
               <img src={`${api}/api/assets/_media/original/${active.id}`} alt={active.originalName} className={`full mediaEnter ${activeMediaFit}`} />
             ) : (
               <SmartVideo
-                hlsSrc={`${api}/api/assets/_media/hls/${active.id}/master.m3u8`}
+                hlsSrc={`${api}/api/assets/_media/hls/${active.id}/master.m3u8?v=${encodeURIComponent(active.processingFinishedAt || active.uploadedAt || active.id)}`}
                 mp4Src={`${api}/api/assets/_media/play/${active.id}`}
                 controls
                 autoPlay
@@ -1071,11 +1081,15 @@ export default function DashboardPage() {
         video.full,
         video.full.contain-tall,
         video.full.contain-wide {
-          height: calc(100% - 36px);
           width: auto !important;
-          max-width: 100%;
-          max-height: calc(100% - 36px);
-          object-fit: contain;
+          height: calc(100% - 36px) !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          max-height: calc(100% - 36px) !important;
+          object-fit: contain !important;
+          aspect-ratio: auto !important;
+          margin: 0 auto;
+          display: block;
         }
         img.full { max-width: 100%; max-height: calc(100% - 36px); }
         .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 50px; height: 50px; border-radius: 999px; border: 0; font-size: 34px; color: white; background: rgba(255,255,255,0.14); cursor: pointer; }
