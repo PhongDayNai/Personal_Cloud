@@ -1,10 +1,10 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const {
   ACCESS_COOKIE,
   REFRESH_COOKIE,
   signAccess,
   signRefresh,
+  verifyAccess,
   verifyRefresh,
   cookieOpts,
 } = require('../lib/auth');
@@ -70,7 +70,7 @@ router.get('/me', (req, res) => {
   if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
   try {
-    const payload = jwt.decode(token);
+    const payload = verifyAccess(token);
     return res.json({ user: payload });
   } catch {
     return res.status(401).json({ message: 'Unauthorized' });

@@ -14,6 +14,8 @@ const {
   getHlsDirAbsPathFromAsset,
   listAlbums,
   assignAlbum,
+  listDocProjects,
+  assignDocProject,
   moveToTrash,
   restoreFromTrash,
   purgeDeleted,
@@ -116,6 +118,10 @@ router.get('/albums', requireAuth, (_req, res) => {
   return res.json({ items: listAlbums() });
 });
 
+router.get('/doc-projects', requireAuth, (_req, res) => {
+  return res.json({ items: listDocProjects() });
+});
+
 router.post('/bulk/album', requireAuth, (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
   const albumName = String(req.body?.albumName || '').trim();
@@ -123,6 +129,16 @@ router.post('/bulk/album', requireAuth, (req, res) => {
   if (!albumName) return res.status(400).json({ message: 'albumName is required' });
 
   const result = assignAlbum(ids, albumName);
+  return res.json({ ok: true, ...result });
+});
+
+router.post('/bulk/doc-project', requireAuth, (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+  const projectName = String(req.body?.projectName || '').trim();
+  if (!ids.length) return res.status(400).json({ message: 'ids is required' });
+  if (!projectName) return res.status(400).json({ message: 'projectName is required' });
+
+  const result = assignDocProject(ids, projectName);
   return res.json({ ok: true, ...result });
 });
 

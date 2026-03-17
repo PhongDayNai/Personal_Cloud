@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 function getApiOrigin() {
   if (typeof window !== 'undefined') {
@@ -15,6 +15,19 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const r = await fetch(`${getApiOrigin()}/api/auth/me`, { credentials: 'include' });
+        if (!mounted) return;
+        if (r.ok) window.location.href = '/dashboard';
+      } catch {}
+    })();
+
+    return () => { mounted = false; };
+  }, []);
 
   async function onSubmit(e) {
     e.preventDefault();

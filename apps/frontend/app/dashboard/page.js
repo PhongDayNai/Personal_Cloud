@@ -164,9 +164,11 @@ export default function DashboardPage() {
   const [docCategoryFilter, setDocCategoryFilter] = useState('all');
   const [docCollectionView, setDocCollectionView] = useState('all'); // all | trash
   const [docKindsExpanded, setDocKindsExpanded] = useState(false);
-  const [docsAutoGroup, setDocsAutoGroup] = useState(true);
   const [collectionView, setCollectionView] = useState('all'); // all | recent | images | videos | trash
   const [albumsExpanded, setAlbumsExpanded] = useState(false);
+  const [docProjects, setDocProjects] = useState([]);
+  const [docProjectsExpanded, setDocProjectsExpanded] = useState(false);
+  const [selectedDocProject, setSelectedDocProject] = useState('all');
   const [groupByTimeEnabled, setGroupByTimeEnabled] = useState(false);
   const [groupMode, setGroupMode] = useState('month'); // month | year
   const [expandedGroups, setExpandedGroups] = useState({});
@@ -218,10 +220,13 @@ export default function DashboardPage() {
 
   const docsFiltered = useMemo(() => {
     let list = docsBase;
+    if (selectedDocProject !== 'all') {
+      list = list.filter((d) => (d.docProjectNames || []).includes(selectedDocProject) || d.docProjectName === selectedDocProject);
+    }
     if (docCategoryFilter !== 'all') list = list.filter((d) => docCategoryOf(d) === docCategoryFilter);
     if (docTypeFilter !== 'all') list = list.filter((d) => docTypeOf(d) === docTypeFilter);
     return list;
-  }, [docsBase, docCategoryFilter, docTypeFilter]);
+  }, [docsBase, selectedDocProject, docCategoryFilter, docTypeFilter]);
 
   const docCategoryCounts = useMemo(() => {
     const m = new Map();
@@ -235,12 +240,12 @@ export default function DashboardPage() {
   const docsGrouped = useMemo(() => {
     const m = new Map();
     for (const d of docsFiltered) {
-      const key = docsAutoGroup ? (DOC_CATEGORY_LABELS[docCategoryOf(d)] || 'Khác') : docTypeOf(d);
+      const key = DOC_CATEGORY_LABELS[docCategoryOf(d)] || 'Khác';
       if (!m.has(key)) m.set(key, []);
       m.get(key).push(d);
     }
     return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [docsFiltered, docsAutoGroup]);
+  }, [docsFiltered]);
 
   const [selectedAlbum, setSelectedAlbum] = useState('all');
 
@@ -314,15 +319,25 @@ export default function DashboardPage() {
   async function loadData() {
     try {
       setErr('');
-      const [u, a] = await Promise.all([
+
+      const me = await fetch(`${api}/api/auth/me`, { credentials: 'include' });
+      if (!me.ok) {
+        window.location.href = '/login';
+        return;
+      }
+
+      const [u, a, p] = await Promise.all([
         fetch(`${api}/api/storage/usage`, { credentials: 'include' }),
         fetch(`${api}/api/assets?limit=1500&includeTrash=true`, { credentials: 'include' }),
+        fetch(`${api}/api/assets/doc-projects`, { credentials: 'include' }),
       ]);
-      if (!u.ok || !a.ok) throw new Error('Chưa đăng nhập hoặc API lỗi');
+      if (!u.ok || !a.ok || !p.ok) throw new Error('API lỗi hoặc phiên đăng nhập hết hạn');
       const usageData = await u.json();
       const assetsData = await a.json();
+      const projectsData = await p.json();
       setUsage(usageData);
       setAssets(assetsData.items || []);
+      setDocProjects(projectsData.items || []);
     } catch (e) {
       setErr(e.message || 'Không tải được dữ liệu');
     }
@@ -501,11 +516,40 @@ export default function DashboardPage() {
     }
   }
 
+  async function addSelectedToDocProject() {
+    if (!selectedIds.length) return;
+    const name = window.prompt('Tên project tài liệu cần thêm vào:');
+    if (!name || !name.trim()) return;
+
+    try {
+      const r = await fetch(`${api}/api/assets/bulk/doc-project`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds, projectName: name.trim() }),
+      });
+      if (!r.ok) throw new Error('Thêm vào project tài liệu thất bại');
+      const data = await r.json();
+      setMsg(`Đã thêm ${data.updated || 0} tài liệu vào project "${name.trim()}"`);
+      await loadData();
+      await loadDocProjects();
+    } catch (e) {
+      setMsg(`Lỗi project tài liệu: ${e.message || 'unknown'}`);
+    }
+  }
+
   async function loadAlbums() {
     const r = await fetch(`${api}/api/assets/albums`, { credentials: 'include' });
     if (!r.ok) throw new Error('Không tải được album');
     const data = await r.json();
     setAlbums(data.items || []);
+  }
+
+  async function loadDocProjects() {
+    const r = await fetch(`${api}/api/assets/doc-projects`, { credentials: 'include' });
+    if (!r.ok) throw new Error('Không tải được nhóm dự án tài liệu');
+    const data = await r.json();
+    setDocProjects(data.items || []);
   }
 
   async function addActiveToAlbum(name) {
@@ -561,7 +605,7 @@ export default function DashboardPage() {
           <span className="ico">🖼</span><span>Tất cả ảnh/video</span><span className="count">{basePhotoAssets.filter((x) => !x.isDeleted).length}</span>
         </button>
 
-        <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setTab('docs'); setDocCollectionView('all'); setDocCategoryFilter('all'); setSelectionMode(false); setSelectedIds([]); }}>
+        <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setTab('docs'); setDocCollectionView('all'); setDocCategoryFilter('all'); setSelectedDocProject('all'); setSelectionMode(false); setSelectedIds([]); }}>
           <span className="ico">📁</span><span>Tài liệu</span><span className="count">{docs.length}</span>
         </button>
 
@@ -615,6 +659,21 @@ export default function DashboardPage() {
                 <span className="ico">🗑</span><span>Tài liệu trong thùng rác</span><span className="count">{trashedDocs.length}</span>
               </button>
 
+              <button className={`navItem ${docProjectsExpanded ? 'active' : ''}`} onClick={() => setDocProjectsExpanded((v) => !v)}>
+                <span className="ico">📚</span><span>Project tài liệu</span><span className="chev">{docProjectsExpanded ? '▾' : '▸'}</span>
+              </button>
+              {docProjectsExpanded && (
+                <div className="subList">
+                  <button className={`subItem ${selectedDocProject === 'all' ? 'active' : ''}`} onClick={() => setSelectedDocProject('all')}>Tất cả project</button>
+                  {docProjects.length === 0 && <div className="subHint">Chưa có project tài liệu</div>}
+                  {docProjects.map((p) => (
+                    <button key={p.name} className={`subItem ${selectedDocProject === p.name ? 'active' : ''}`} onClick={() => setSelectedDocProject(p.name)}>
+                      {p.name} ({p.count})
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <button className={`navItem ${docCategoryFilter === 'all' ? 'active' : ''}`} onClick={() => setDocCategoryFilter('all')}>
                 <span className="ico">🧩</span><span>Tất cả loại</span><span className="count">{docsBase.length}</span>
               </button>
@@ -643,10 +702,6 @@ export default function DashboardPage() {
                   </button>
                 </div>
               )}
-
-              <button className={`navItem ${docsAutoGroup ? 'active' : ''}`} onClick={() => setDocsAutoGroup((v) => !v)}>
-                <span className="ico">🧠</span><span>{docsAutoGroup ? 'Tự gom nhóm: BẬT' : 'Tự gom nhóm: TẮT'}</span>
-              </button>
             </div>
           )}
         </div>
@@ -691,6 +746,7 @@ export default function DashboardPage() {
                 {(tab === 'photos' && collectionView !== 'trash') || (tab === 'docs' && docCollectionView !== 'trash') ? (
                   <>
                     {tab === 'photos' && <button className="ghost" onClick={addSelectedToAlbum}>Thêm vào album</button>}
+                    {tab === 'docs' && <button className="ghost" onClick={addSelectedToDocProject}>Thêm vào project tài liệu</button>}
                     <button className="danger" onClick={moveSelectedToTrash}>Xóa</button>
                   </>
                 ) : (
@@ -773,10 +829,7 @@ export default function DashboardPage() {
                 <option value="all">Tất cả</option>
                 {docTypes.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
-              <span>Nhóm:</span>
-              <button className={`chip ${docsAutoGroup ? 'active' : ''}`} onClick={() => setDocsAutoGroup((v) => !v)}>
-                {docsAutoGroup ? 'Theo nhóm phổ biến' : 'Theo extension'}
-              </button>
+              {selectedDocProject !== 'all' && <span className="chip active">Project: {selectedDocProject}</span>}
             </div>
 
             {docCollectionView === 'trash' && <div className="hint">Thùng rác tài liệu: chọn nhiều để khôi phục hoặc xóa vĩnh viễn.</div>}

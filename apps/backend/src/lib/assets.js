@@ -217,6 +217,8 @@ function normalizeItem(x) {
     takenAt: x.takenAt || x.uploadedAt,
     albumName: x.albumName || null,
     albumNames: Array.isArray(x.albumNames) ? x.albumNames : (x.albumName ? [x.albumName] : []),
+    docProjectName: x.docProjectName || null,
+    docProjectNames: Array.isArray(x.docProjectNames) ? x.docProjectNames : (x.docProjectName ? [x.docProjectName] : []),
     playRelPath: x.playRelPath || null,
     hlsRelPath: x.hlsRelPath || null,
     isDeleted: Boolean(x.isDeleted),
@@ -288,6 +290,42 @@ function assignAlbum(ids = [], albumName = '') {
     if (!names.includes(name)) names.push(name);
     it.albumNames = names;
     it.albumName = names[0] || null;
+    updated += 1;
+  }
+
+  writeIndex(db);
+  return { updated };
+}
+
+function listDocProjects() {
+  const db = readIndex();
+  const m = new Map();
+  for (const it of db.items.map(normalizeItem)) {
+    if (it.isDeleted) continue;
+    if (it.type === 'image' || it.type === 'video') continue;
+    const names = Array.isArray(it.docProjectNames) ? it.docProjectNames : (it.docProjectName ? [it.docProjectName] : []);
+    for (const n of names) m.set(n, (m.get(n) || 0) + 1);
+  }
+  return Array.from(m.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function assignDocProject(ids = [], projectName = '') {
+  const name = String(projectName || '').trim();
+  if (!name) return { updated: 0 };
+
+  const idSet = new Set(ids || []);
+  const db = readIndex();
+  let updated = 0;
+
+  for (const it of db.items) {
+    if (!idSet.has(it.id)) continue;
+    if (it.isDeleted) continue;
+    if (it.type === 'image' || it.type === 'video') continue;
+
+    const names = Array.isArray(it.docProjectNames) ? it.docProjectNames : (it.docProjectName ? [it.docProjectName] : []);
+    if (!names.includes(name)) names.push(name);
+    it.docProjectNames = names;
+    it.docProjectName = names[0] || null;
     updated += 1;
   }
 
@@ -422,6 +460,8 @@ module.exports = {
   getHlsDirAbsPathFromAsset,
   listAlbums,
   assignAlbum,
+  listDocProjects,
+  assignDocProject,
   moveToTrash,
   restoreFromTrash,
   purgeDeleted,

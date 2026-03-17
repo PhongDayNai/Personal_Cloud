@@ -1,18 +1,37 @@
-import Link from 'next/link';
+'use client';
+
+import { useEffect } from 'react';
+
+function getApiOrigin() {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'hc.example.com') return 'https://api.example.com';
+    if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:45174';
+  }
+  return process.env.NEXT_PUBLIC_API_ORIGIN || process.env.API_ORIGIN || 'http://localhost:45174';
+}
 
 export default function Home() {
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const r = await fetch(`${getApiOrigin()}/api/auth/me`, { credentials: 'include' });
+        if (!mounted) return;
+        window.location.href = r.ok ? '/dashboard' : '/login';
+      } catch {
+        if (!mounted) return;
+        window.location.href = '/login';
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, []);
+
   return (
     <main style={{ maxWidth: 800, margin: '80px auto', padding: 16 }}>
       <h1 style={{ fontSize: 36, marginBottom: 8 }}>HC Photos</h1>
-      <p style={{ opacity: 0.9 }}>Kho ảnh/video private của anh — bootstrap phiên bản đầu.</p>
-      <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-        <Link href="/login" style={{ background: '#4f7cff', color: 'white', padding: '10px 16px', borderRadius: 10, textDecoration: 'none' }}>
-          Đăng nhập
-        </Link>
-        <Link href="/dashboard" style={{ border: '1px solid #3d4f8a', color: '#dbe6ff', padding: '10px 16px', borderRadius: 10, textDecoration: 'none' }}>
-          Dashboard
-        </Link>
-      </div>
+      <p style={{ opacity: 0.9 }}>Đang kiểm tra phiên đăng nhập...</p>
     </main>
   );
 }
