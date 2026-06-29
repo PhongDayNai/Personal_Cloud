@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'HC Photos',
+  title: 'PC Photos',
   description: 'Private photo/video hub',
 };
 

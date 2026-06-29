@@ -23,7 +23,7 @@ export default function LoginPage() {
         const r = await fetch(`${getApiOrigin()}/api/auth/me`, { credentials: 'include' });
         if (!mounted) return;
         if (r.ok) window.location.href = '/dashboard';
-      } catch {}
+      } catch { }
     })();
 
     return () => { mounted = false; };
@@ -66,7 +66,7 @@ export default function LoginPage() {
 
   return (
     <main style={{ maxWidth: 480, margin: '70px auto', padding: 16 }}>
-      <h2>Đăng nhập HC Photos</h2>
+      <h2>Đăng nhập PC Photos</h2>
       <form onSubmit={onSubmit} style={{ display: 'grid', gap: 10, marginTop: 16 }}>
         <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={{ padding: 10, borderRadius: 8 }} />
         <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mật khẩu" type="password" style={{ padding: 10, borderRadius: 8 }} />

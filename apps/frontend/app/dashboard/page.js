@@ -83,7 +83,7 @@ async function readErrorMessage(res) {
     try {
       const txt = await res.text();
       if (txt) return txt.slice(0, 300);
-    } catch {}
+    } catch { }
   }
   return 'không có chi tiết từ server';
 }
@@ -130,7 +130,7 @@ function SmartVideo({ hlsSrc, mp4Src, className, controls = false, autoPlay = fa
         });
         hls.on(Hls.Events.ERROR, (_evt, data) => {
           if (data?.fatal) {
-            try { hls.destroy(); } catch {}
+            try { hls.destroy(); } catch { }
             setFallbackToMp4(true);
           }
         });
@@ -145,7 +145,7 @@ function SmartVideo({ hlsSrc, mp4Src, className, controls = false, autoPlay = fa
 
     return () => {
       cancelled = true;
-      try { if (hls) hls.destroy(); } catch {}
+      try { if (hls) hls.destroy(); } catch { }
     };
   }, [hlsSrc, mp4Src, fallbackToMp4]);
 
@@ -154,7 +154,7 @@ function SmartVideo({ hlsSrc, mp4Src, className, controls = false, autoPlay = fa
     if (!el) return;
     if (active && autoPlay) {
       const p = el.play();
-      if (p && typeof p.catch === 'function') p.catch(() => {});
+      if (p && typeof p.catch === 'function') p.catch(() => { });
     } else {
       el.pause();
     }
@@ -790,7 +790,7 @@ export default function DashboardPage() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="logo">HC Photos</div>
+        <div className="logo">PC Photos</div>
 
         <button className={`navItem ${tab === 'photos' && collectionView === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); setSelectionMode(false); setSelectedIds([]); }}>
           <span className="ico">🖼</span><span>Tất cả ảnh/video</span><span className="count">{basePhotoAssets.filter((x) => !x.isDeleted).length}</span>
@@ -928,10 +928,10 @@ export default function DashboardPage() {
                 const appPercent = usage.totalBytes > 0 ? Number(((appUsed / usage.totalBytes) * 100).toFixed(4)) : 0;
                 return (
                   <>
-                    <div className="row"><span>HC Photos dùng</span><b>{fmtBytes(appUsed)}</b></div>
+                    <div className="row"><span>PC Photos dùng</span><b>{fmtBytes(appUsed)}</b></div>
                     <div className="row"><span>Tổng ổ</span><b>{fmtBytes(usage.totalBytes)}</b></div>
                     <div className="bar"><div className="barFill" style={{ width: `${Math.min(100, appPercent)}%` }} /></div>
-                    <small>HC Photos: {appPercent}% · Filesystem: {usage.usedPercent}%</small>
+                    <small>PC Photos: {appPercent}% · Filesystem: {usage.usedPercent}%</small>
                     {Number(usage.processingCount || 0) > 0 && <small>Đang xử lý media: {usage.processingCount} file · tạm giữ nguyên số usage</small>}
                   </>
                 );
