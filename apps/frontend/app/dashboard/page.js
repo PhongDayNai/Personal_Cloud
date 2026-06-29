@@ -412,6 +412,17 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    const hasProcessing = assets.some((a) => a.type === 'video' && a.processingStatus === 'processing');
+    if (!hasProcessing) return;
+
+    const timer = setInterval(() => {
+      loadData();
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [assets, api]);
+
+  useEffect(() => {
     function onKey(e) {
       if (activeIndex < 0) return;
       if (e.key === 'Escape') {
@@ -1017,11 +1028,18 @@ export default function DashboardPage() {
                           const srcPlay = `${api}/api/assets/_media/play/${a.id}`;
                           const picked = selectedIds.includes(a.id);
                           return (
-                            <div key={a.id} className={`tile ${picked ? 'picked' : ''}`} {...cardHandlers(a, () => openPhoto(a.id))} style={{ animationDelay: `${(idx % 24) * 0.02}s` }}>
+                            <div key={a.id} className={`tile ${picked ? 'picked' : ''} ${a.processingStatus === 'processing' ? 'tileProcessing' : ''}`} {...cardHandlers(a, () => openPhoto(a.id))} style={{ animationDelay: `${(idx % 24) * 0.02}s` }}>
                               {a.type === 'image' ? (
                                 <img src={srcOriginal} alt={a.originalName} className="thumb" />
                               ) : (
-                                <video src={srcPlay} className="thumb" muted preload="metadata" />
+                                a.processingStatus === 'processing' ? (
+                                  <div className="processingPlaceholder">
+                                    <div className="pulseLoader" />
+                                    <span className="processingText">Đang xử lý...</span>
+                                  </div>
+                                ) : (
+                                  <video src={srcPlay} className="thumb" muted preload="metadata" />
+                                )
                               )}
                               <div className="caption">{a.originalName}</div>
                               {a.type === 'video' && a.processingStatus === 'processing' && <div className="processingBadge">Đang xử lý…</div>}
@@ -1083,17 +1101,29 @@ export default function DashboardPage() {
               <img key={active.id} src={`${api}/api/assets/_media/original/${active.id}`} alt={active.originalName} className={`full mediaEnter ${activeMediaFit}`} />
             )}
             {active.type === 'video' && (
-              <SmartVideo
-                key={active.id}
-                hlsSrc={`${api}/api/assets/_media/hls/${active.id}/master.m3u8?v=${encodeURIComponent(active.processingFinishedAt || active.uploadedAt || active.id)}`}
-                mp4Src={`${api}/api/assets/_media/play/${active.id}`}
-                controls
-                autoPlay
-                className={`full mediaEnter ${activeMediaFit}`}
-                preload="auto"
-                active
-                onMeta={({ w, h }) => setActiveMediaFit(h > w ? 'contain-tall' : 'contain-wide')}
-              />
+              active.processingStatus === 'processing' ? (
+                <div className="videoProcessingOverlay mediaEnter">
+                  <div className="loadingSpinner" />
+                  <div className="overlayTitle">Đang tối ưu hóa Video</div>
+                  <div className="overlayDesc">Hệ thống đang tiến hành nén định dạng và tạo phân đoạn phát trực tuyến (HLS) tự động ở chế độ nền. Bạn vẫn có thể tải video gốc về máy để xem trước.</div>
+                  <a href={`${api}/api/assets/_media/original/${active.id}`} download={active.originalName} className="downloadOriginalBtn" onClick={(e) => e.stopPropagation()}>
+                    <span>Tải video gốc về máy</span>
+                    <span>↓</span>
+                  </a>
+                </div>
+              ) : (
+                <SmartVideo
+                  key={active.id}
+                  hlsSrc={`${api}/api/assets/_media/hls/${active.id}/master.m3u8?v=${encodeURIComponent(active.processingFinishedAt || active.uploadedAt || active.id)}`}
+                  mp4Src={`${api}/api/assets/_media/play/${active.id}`}
+                  controls
+                  autoPlay
+                  className={`full mediaEnter ${activeMediaFit}`}
+                  preload="auto"
+                  active
+                  onMeta={({ w, h }) => setActiveMediaFit(h > w ? 'contain-tall' : 'contain-wide')}
+                />
+              )
             )}
             {active.type !== 'image' && active.type !== 'video' && (
               <div className="docPreviewBlock mediaEnter">
@@ -1764,16 +1794,106 @@ export default function DashboardPage() {
           font-weight: 500;
         }
 
+        .processingPlaceholder {
+          width: 100%;
+          height: 160px;
+          background: linear-gradient(135deg, #18181b 0%, #09090b 100%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          position: relative;
+        }
+        .pulseLoader {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: rgba(245, 158, 11, 0.15);
+          border: 2px solid #f59e0b;
+          animation: pulse 1.8s ease-in-out infinite;
+        }
+        .processingText {
+          font-size: 10px;
+          color: #f59e0b;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          animation: textPulse 1.8s ease-in-out infinite;
+        }
+        .videoProcessingOverlay {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 18px;
+          padding: 32px;
+          border-radius: 20px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          backdrop-filter: blur(16px);
+          max-width: 420px;
+          text-align: center;
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+          z-index: 10;
+        }
+        .loadingSpinner {
+          width: 44px;
+          height: 44px;
+          border: 3px solid rgba(245, 158, 11, 0.1);
+          border-top-color: #f59e0b;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        .overlayTitle {
+          font-size: 18px;
+          font-weight: 700;
+          color: #ffffff;
+        }
+        .overlayDesc {
+          font-size: 13px;
+          color: #a1a1aa;
+          line-height: 1.5;
+        }
+        .downloadOriginalBtn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: #f59e0b;
+          color: #000000;
+          padding: 10px 18px;
+          border-radius: 10px;
+          font-weight: 600;
+          font-size: 12px;
+          text-decoration: none;
+          transition: all 0.2s ease;
+        }
+        .downloadOriginalBtn:hover {
+          background: #fbbf24;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(245, 158, 11, 0.3);
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { transform: scale(0.85); opacity: 0.5; }
+          50% { transform: scale(1.15); opacity: 1; }
+        }
+        @keyframes textPulse {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 1; }
+        }
+
         .viewer {
           position: fixed;
           inset: 0;
-          background: rgba(4, 4, 6, 0.94);
+          background: rgba(10, 10, 12, 0.98);
           z-index: 9999;
           display: flex;
           align-items: center;
           justify-content: center;
-          backdrop-filter: blur(20px);
-          animation: viewerFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: viewerFadeIn 0.2s ease-out forwards;
         }
         .stage {
           width: calc(100vw - 160px);
@@ -2340,8 +2460,8 @@ export default function DashboardPage() {
           to { opacity: 1; transform: translateY(0); max-height: 500px; }
         }
         @keyframes viewerFadeIn {
-          from { background: rgba(4, 4, 6, 0); backdrop-filter: blur(0px); }
-          to { background: rgba(4, 4, 6, 0.94); backdrop-filter: blur(20px); }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
         @keyframes panelEnter {
           from { opacity: 0; transform: scale(0.95) translateY(-8px); }
