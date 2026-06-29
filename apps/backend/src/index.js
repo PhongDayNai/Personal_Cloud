@@ -49,7 +49,7 @@ app.use('/api/assets', assetsRoutes);
 
 app.get('/api', (_req, res) => {
   res.json({
-    name: 'HC Photos API',
+    name: 'PC Photos API',
     version: '0.1.0',
     endpoints: ['/api/health', '/api/auth/*', '/api/storage/usage'],
   });

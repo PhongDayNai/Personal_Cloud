@@ -1,4 +1,4 @@
-# HC Photos (Bootstrap)
+#PC Photos (Bootstrap)
 
 Bản bootstrap triển khai theo docs đã chốt:
 - Không Nginx
