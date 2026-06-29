@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const exifr = require('exifr');
-const { spawnSync } = require('child_process');
+const { spawnSync, spawn } = require('child_process');
 
 const LIBRARY_PATH = path.resolve(process.env.MEDIA_LIBRARY_PATH || '/data/library');
 const ORIGINALS_ROOT = path.resolve(LIBRARY_PATH, 'originals');
@@ -75,29 +75,40 @@ function buildHlsDirById(id) {
 }
 
 function makeVideoPlayable(absPath, id) {
-  const out = buildPlayPathById(id);
+  return new Promise((resolve) => {
+    const out = buildPlayPathById(id);
 
-  const transcode = spawnSync('ffmpeg', [
-    '-y',
-    '-i', absPath,
-    '-map', '0:v:0',
-    '-map', '0:a?',
-    '-c:v', 'libx264',
-    '-preset', 'faster',
-    '-crf', '18',
-    '-pix_fmt', 'yuv420p',
-    '-maxrate', '10M',
-    '-bufsize', '20M',
-    '-g', '48',
-    '-keyint_min', '48',
-    '-c:a', 'aac',
-    '-b:a', '192k',
-    '-movflags', '+faststart',
-    out,
-  ], { stdio: 'ignore' });
+    const child = spawn('ffmpeg', [
+      '-y',
+      '-i', absPath,
+      '-map', '0:v:0',
+      '-map', '0:a?',
+      '-c:v', 'libx264',
+      '-preset', 'faster',
+      '-crf', '18',
+      '-pix_fmt', 'yuv420p',
+      '-maxrate', '10M',
+      '-bufsize', '20M',
+      '-g', '48',
+      '-keyint_min', '48',
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      '-movflags', '+faststart',
+      out,
+    ], { stdio: 'ignore' });
 
-  if (transcode.status === 0 && fs.existsSync(out)) return out;
-  return null;
+    child.on('close', (code) => {
+      if (code === 0 && fs.existsSync(out)) {
+        resolve(out);
+      } else {
+        resolve(null);
+      }
+    });
+
+    child.on('error', () => {
+      resolve(null);
+    });
+  });
 }
 
 function probeVideoSize(absPath) {
@@ -121,71 +132,83 @@ function probeVideoSize(absPath) {
 }
 
 function makeVideoHlsHigh(absPath, id) {
-  const hlsDir = buildHlsDirById(id);
-  const streamPath = path.join(hlsDir, 'stream.m3u8');
-  const masterPath = path.join(hlsDir, 'master.m3u8');
+  return new Promise((resolve) => {
+    const hlsDir = buildHlsDirById(id);
+    const streamPath = path.join(hlsDir, 'stream.m3u8');
+    const masterPath = path.join(hlsDir, 'master.m3u8');
 
-  const transcode = spawnSync('ffmpeg', [
-    '-y',
-    '-i', absPath,
-    '-map', '0:v:0',
-    '-map', '0:a?',
-    '-c:v', 'libx264',
-    '-preset', 'faster',
-    '-crf', '18',
-    '-pix_fmt', 'yuv420p',
-    '-maxrate', '10M',
-    '-bufsize', '20M',
-    '-g', '48',
-    '-keyint_min', '48',
-    '-sc_threshold', '0',
-    '-c:a', 'aac',
-    '-b:a', '192k',
-    '-hls_time', '4',
-    '-hls_playlist_type', 'vod',
-    '-hls_flags', 'independent_segments',
-    '-hls_segment_filename', path.join(hlsDir, 'seg_%05d.ts'),
-    streamPath,
-  ], { stdio: 'ignore' });
+    const child = spawn('ffmpeg', [
+      '-y',
+      '-i', absPath,
+      '-map', '0:v:0',
+      '-map', '0:a?',
+      '-c:v', 'libx264',
+      '-preset', 'faster',
+      '-crf', '18',
+      '-pix_fmt', 'yuv420p',
+      '-maxrate', '10M',
+      '-bufsize', '20M',
+      '-g', '48',
+      '-keyint_min', '48',
+      '-sc_threshold', '0',
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      '-hls_time', '4',
+      '-hls_playlist_type', 'vod',
+      '-hls_flags', 'independent_segments',
+      '-hls_segment_filename', path.join(hlsDir, 'seg_%05d.ts'),
+      streamPath,
+    ], { stdio: 'ignore' });
 
-  if (transcode.status !== 0 || !fs.existsSync(streamPath)) return null;
+    child.on('close', (code) => {
+      if (code !== 0 || !fs.existsSync(streamPath)) {
+        return resolve(null);
+      }
 
-  const size = probeVideoSize(streamPath) || probeVideoSize(absPath);
-  const res = size ? `${size.w}x${size.h}` : '1920x1080';
+      const size = probeVideoSize(streamPath) || probeVideoSize(absPath);
+      const res = size ? `${size.w}x${size.h}` : '1920x1080';
 
-  const master = [
-    '#EXTM3U',
-    '#EXT-X-VERSION:3',
-    `#EXT-X-STREAM-INF:BANDWIDTH=12000000,AVERAGE-BANDWIDTH=8000000,RESOLUTION=${res},CODECS="avc1.640028,mp4a.40.2"`,
-    'stream.m3u8',
-    '',
-  ].join('\n');
-  fs.writeFileSync(masterPath, master);
+      const master = [
+        '#EXTM3U',
+        '#EXT-X-VERSION:3',
+        `#EXT-X-STREAM-INF:BANDWIDTH=12000000,AVERAGE-BANDWIDTH=8000000,RESOLUTION=${res},CODECS="avc1.640028,mp4a.40.2"`,
+        'stream.m3u8',
+        '',
+      ].join('\n');
+      
+      try {
+        fs.writeFileSync(masterPath, master);
+        resolve({
+          hlsDir,
+          masterPath,
+        });
+      } catch {
+        resolve(null);
+      }
+    });
 
-  return {
-    hlsDir,
-    masterPath,
-  };
+    child.on('error', () => {
+      resolve(null);
+    });
+  });
 }
 
-function scheduleVideoDerivatives(id, absPath) {
-  setTimeout(() => {
-    try {
-      const playable = makeVideoPlayable(absPath, id);
-      const hls = makeVideoHlsHigh(absPath, id);
+async function scheduleVideoDerivatives(id, absPath) {
+  try {
+    const playable = await makeVideoPlayable(absPath, id);
+    const hls = await makeVideoHlsHigh(absPath, id);
 
-      const db = readIndex();
-      const item = db.items.find((x) => x.id === id);
-      if (!item) return;
+    const db = readIndex();
+    const item = db.items.find((x) => x.id === id);
+    if (!item) return;
 
-      if (playable) item.playRelPath = path.relative(LIBRARY_PATH, playable).replaceAll('\\', '/');
-      if (hls?.masterPath) item.hlsRelPath = path.relative(LIBRARY_PATH, hls.masterPath).replaceAll('\\', '/');
-      item.processingStatus = 'ready';
-      item.processingFinishedAt = new Date().toISOString();
+    if (playable) item.playRelPath = path.relative(LIBRARY_PATH, playable).replaceAll('\\', '/');
+    if (hls?.masterPath) item.hlsRelPath = path.relative(LIBRARY_PATH, hls.masterPath).replaceAll('\\', '/');
+    item.processingStatus = 'ready';
+    item.processingFinishedAt = new Date().toISOString();
 
-      writeIndex(db);
-    } catch {}
-  }, 0);
+    writeIndex(db);
+  } catch {}
 }
 
 async function saveUploadedFile(file, user) {
