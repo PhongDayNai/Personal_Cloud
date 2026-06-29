@@ -218,7 +218,6 @@ export default function DashboardPage() {
   const [groupByTimeEnabled, setGroupByTimeEnabled] = useState(false);
   const [groupMode, setGroupMode] = useState('month'); // month | year
   const [expandedGroups, setExpandedGroups] = useState({});
-  const [mediaCacheIds, setMediaCacheIds] = useState([]);
   const [activeMediaFit, setActiveMediaFit] = useState('contain');
 
   const longPressRef = useRef(null);
@@ -347,17 +346,7 @@ export default function DashboardPage() {
     }
   }, [active?.id, active?.type, api]);
 
-  useEffect(() => {
-    if (!active || active.type !== 'video') return;
-    const ids = [active.id];
-    if (albumFilteredPhotos[activeIndex - 1]?.type === 'video') ids.push(albumFilteredPhotos[activeIndex - 1].id);
-    if (albumFilteredPhotos[activeIndex + 1]?.type === 'video') ids.push(albumFilteredPhotos[activeIndex + 1].id);
 
-    setMediaCacheIds((prev) => {
-      const merged = [...new Set([...prev, ...ids])];
-      return merged.slice(-12);
-    });
-  }, [active?.id, active?.type, activeIndex, albumFilteredPhotos]);
 
   function clearLongPress() {
     if (longPressRef.current) {
@@ -1210,11 +1199,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="mediaCache" aria-hidden>
-        {mediaCacheIds.map((id) => (
-          <video key={id} src={`${api}/api/assets/_media/play/${id}`} preload="auto" muted playsInline />
-        ))}
-      </div>
 
       <style jsx>{`
         .shell {
@@ -2103,14 +2087,6 @@ export default function DashboardPage() {
         }
         .albumBtnCancel:hover {
           background: rgba(255, 255, 255, 0.1);
-        }
-        .mediaCache {
-          position: fixed;
-          width: 0;
-          height: 0;
-          overflow: hidden;
-          opacity: 0;
-          pointer-events: none;
         }
 
         .tagBtn { right: 168px; }
