@@ -284,6 +284,13 @@ function listAssets(limit = 200, opts = {}) {
   if (onlyTrash) items = items.filter((x) => x.isDeleted);
   else if (!includeTrash) items = items.filter((x) => !x.isDeleted);
 
+  // Sắp xếp theo ngày chụp (takenAt) giảm dần (mới nhất lên đầu)
+  items.sort((a, b) => {
+    const timeA = new Date(a.takenAt || a.uploadedAt || 0).getTime();
+    const timeB = new Date(b.takenAt || b.uploadedAt || 0).getTime();
+    return timeB - timeA;
+  });
+
   return items.slice(0, Math.max(1, Math.min(limit, 5000)));
 }
 
