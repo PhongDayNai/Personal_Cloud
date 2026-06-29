@@ -4,6 +4,8 @@ COPY package*.json ./
 RUN npm install --omit=dev
 
 FROM node:22-alpine AS build
+ARG NEXT_PUBLIC_API_ORIGIN
+ENV NEXT_PUBLIC_API_ORIGIN=$NEXT_PUBLIC_API_ORIGIN
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

@@ -3,6 +3,8 @@ services:
     container_name: hcphotos-fe
     build:
       context: ./apps/frontend
+      args:
+        - NEXT_PUBLIC_API_ORIGIN=${NEXT_PUBLIC_API_ORIGIN}
     env_file:
       - .env
     environment:
