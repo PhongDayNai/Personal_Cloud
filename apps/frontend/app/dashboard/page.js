@@ -421,7 +421,7 @@ export default function DashboardPage() {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName: file.name, mime: file.type || 'application/octet-stream', totalSize: file.size }),
+      body: JSON.stringify({ fileName: file.name, mime: file.type || 'application/octet-stream', totalSize: file.size, lastModified: file.lastModified }),
     });
     if (!init.ok) {
       const detail = await readErrorMessage(init);
@@ -484,6 +484,7 @@ export default function DashboardPage() {
         } else {
           const form = new FormData();
           form.append('files', file);
+          form.append('lastModified', String(file.lastModified));
           const r = await fetch(`${api}/api/assets/upload`, {
             method: 'POST',
             credentials: 'include',

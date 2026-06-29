@@ -43,7 +43,7 @@ router.get('/', requireAuth, (req, res) => {
 });
 
 router.post('/upload-chunk/init', requireAuth, (req, res) => {
-  const { fileName, mime, totalSize } = req.body || {};
+  const { fileName, mime, totalSize, lastModified } = req.body || {};
   if (!fileName || !mime) return res.status(400).json({ message: 'fileName and mime are required' });
 
   const uploadId = crypto.randomUUID();
@@ -56,6 +56,7 @@ router.post('/upload-chunk/init', requireAuth, (req, res) => {
     totalSize: Number(totalSize || 0),
     chunkDir,
     createdAt: Date.now(),
+    lastModified: lastModified ? Number(lastModified) : null,
   });
 
   return res.json({ ok: true, uploadId });
@@ -98,6 +99,7 @@ router.post('/upload-chunk/:uploadId/complete', requireAuth, async (req, res) =>
       originalname: session.fileName,
       mimetype: session.mime,
       size: stat.size,
+      lastModified: session.lastModified,
     },
     req.user
   );
@@ -110,7 +112,8 @@ router.post('/upload-chunk/:uploadId/complete', requireAuth, async (req, res) =>
 
 router.post('/upload', requireAuth, upload.array('files', 50), async (req, res) => {
   const files = req.files || [];
-  const saved = await Promise.all(files.map((f) => saveUploadedFile(f, req.user)));
+  const lastModified = req.body.lastModified ? Number(req.body.lastModified) : null;
+  const saved = await Promise.all(files.map((f) => saveUploadedFile({ ...f, lastModified }, req.user)));
   return res.json({ ok: true, count: saved.length, items: saved });
 });
 

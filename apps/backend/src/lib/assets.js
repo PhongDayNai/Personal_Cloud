@@ -4,11 +4,11 @@ const crypto = require('crypto');
 const exifr = require('exifr');
 const { spawnSync } = require('child_process');
 
-const LIBRARY_PATH = process.env.MEDIA_LIBRARY_PATH || '/data/library';
-const ORIGINALS_ROOT = path.join(LIBRARY_PATH, 'originals');
-const TRASH_ROOT = process.env.MEDIA_TRASH_PATH || path.join(LIBRARY_PATH, 'trash');
-const INDEX_DIR = path.join(LIBRARY_PATH, 'index');
-const INDEX_FILE = path.join(INDEX_DIR, 'assets.json');
+const LIBRARY_PATH = path.resolve(process.env.MEDIA_LIBRARY_PATH || '/data/library');
+const ORIGINALS_ROOT = path.resolve(LIBRARY_PATH, 'originals');
+const TRASH_ROOT = path.resolve(process.env.MEDIA_TRASH_PATH || path.join(LIBRARY_PATH, 'trash'));
+const INDEX_DIR = path.resolve(LIBRARY_PATH, 'index');
+const INDEX_FILE = path.resolve(INDEX_DIR, 'assets.json');
 let lastGoodIndex = { items: [] };
 
 function ensureIndex() {
@@ -212,7 +212,17 @@ async function saveUploadedFile(file, user) {
   }
 
   const uploadedAt = now.toISOString();
-  const takenAt = (await detectTakenAt(absPath, file.mimetype)) || uploadedAt;
+  let takenAt = await detectTakenAt(absPath, file.mimetype);
+  if (!takenAt && file.lastModified) {
+    const parsed = Number(file.lastModified);
+    const d = new Date(Number.isNaN(parsed) ? file.lastModified : parsed);
+    if (!Number.isNaN(d.getTime())) {
+      takenAt = d.toISOString();
+    }
+  }
+  if (!takenAt) {
+    takenAt = uploadedAt;
+  }
 
   const relPath = path.relative(LIBRARY_PATH, absPath).replaceAll('\\', '/');
   const isVideo = file.mimetype?.startsWith('video/');
