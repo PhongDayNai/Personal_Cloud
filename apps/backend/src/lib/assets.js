@@ -244,6 +244,7 @@ async function saveUploadedFile(file, user) {
     ext,
     albumName: null,
     albumNames: [],
+    tags: [],
     isDeleted: false,
     deletedAt: null,
     type: file.mimetype?.startsWith('image/') ? 'image' : file.mimetype?.startsWith('video/') ? 'video' : 'file',
@@ -266,6 +267,7 @@ function normalizeItem(x) {
     albumNames: Array.isArray(x.albumNames) ? x.albumNames : (x.albumName ? [x.albumName] : []),
     docProjectName: x.docProjectName || null,
     docProjectNames: Array.isArray(x.docProjectNames) ? x.docProjectNames : (x.docProjectName ? [x.docProjectName] : []),
+    tags: Array.isArray(x.tags) ? x.tags : [],
     playRelPath: x.playRelPath || null,
     hlsRelPath: x.hlsRelPath || null,
     processingStatus: x.processingStatus || 'ready',
@@ -330,6 +332,29 @@ function listAlbums() {
     for (const n of names) m.set(n, (m.get(n) || 0) + 1);
   }
   return Array.from(m.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function listTags() {
+  const db = readIndex();
+  const m = new Map();
+  for (const it of db.items.map(normalizeItem)) {
+    if (it.isDeleted) continue;
+    const names = Array.isArray(it.tags) ? it.tags : [];
+    for (const n of names) m.set(n, (m.get(n) || 0) + 1);
+  }
+  return Array.from(m.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function setAssetTags(id, tags = []) {
+  const cleanTags = tags.map(x => String(x || '').trim().toLowerCase()).filter(Boolean);
+  const uniqueTags = [...new Set(cleanTags)];
+  const db = readIndex();
+  const it = db.items.find((x) => x.id === id);
+  if (!it) return { updated: 0 };
+
+  it.tags = uniqueTags;
+  writeIndex(db);
+  return { updated: 1 };
 }
 
 function assignAlbum(ids = [], albumName = '') {
@@ -530,6 +555,8 @@ module.exports = {
   listAlbums,
   assignAlbum,
   setAssetAlbums,
+  listTags,
+  setAssetTags,
   listDocProjects,
   assignDocProject,
   moveToTrash,

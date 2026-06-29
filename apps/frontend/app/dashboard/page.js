@@ -201,6 +201,11 @@ export default function DashboardPage() {
   const [albums, setAlbums] = useState([]);
   const [albumQuery, setAlbumQuery] = useState('');
   const [selectedAlbumsForActive, setSelectedAlbumsForActive] = useState([]);
+  const [tags, setTags] = useState([]);
+  const [selectedFilterTags, setSelectedFilterTags] = useState([]);
+  const [selectedTagsForActive, setSelectedTagsForActive] = useState([]);
+  const [showTagPicker, setShowTagPicker] = useState(false);
+  const [tagQuery, setTagQuery] = useState('');
   const [docTypeFilter, setDocTypeFilter] = useState('all');
   const [docCategoryFilter, setDocCategoryFilter] = useState('all');
   const [docCollectionView, setDocCollectionView] = useState('all'); // all | trash
@@ -221,10 +226,16 @@ export default function DashboardPage() {
   const usageCardRef = useRef(null);
 
   const filteredAssets = useMemo(() => {
+    let list = assets;
     const q = search.trim().toLowerCase();
-    if (!q) return assets;
-    return assets.filter((a) => (a.originalName || '').toLowerCase().includes(q));
-  }, [assets, search]);
+    if (q) {
+      list = list.filter((a) => (a.originalName || '').toLowerCase().includes(q) || (a.tags || []).some(t => t.toLowerCase().includes(q)));
+    }
+    if (selectedFilterTags.length > 0) {
+      list = list.filter((a) => selectedFilterTags.every((t) => (a.tags || []).includes(t)));
+    }
+    return list;
+  }, [assets, search, selectedFilterTags]);
 
   const basePhotoAssets = useMemo(
     () => filteredAssets.filter((a) => a.type === 'image' || a.type === 'video'),
@@ -316,7 +327,9 @@ export default function DashboardPage() {
     return Array.from(m.entries());
   }, [albumFilteredPhotos, groupMode, groupByTimeEnabled]);
 
-  const active = activeIndex >= 0 ? albumFilteredPhotos[activeIndex] : null;
+  const active = activeIndex >= 0
+    ? (tab === 'photos' ? albumFilteredPhotos[activeIndex] : docsFiltered[activeIndex])
+    : null;
 
   useEffect(() => {
     if (!active) return;
@@ -384,18 +397,21 @@ export default function DashboardPage() {
         return;
       }
 
-      const [u, a, p] = await Promise.all([
+      const [u, a, p, t] = await Promise.all([
         fetch(`${api}/api/storage/usage`, { credentials: 'include' }),
         fetch(`${api}/api/assets?limit=1500&includeTrash=true`, { credentials: 'include' }),
         fetch(`${api}/api/assets/doc-projects`, { credentials: 'include' }),
+        fetch(`${api}/api/assets/tags`, { credentials: 'include' }),
       ]);
-      if (!u.ok || !a.ok || !p.ok) throw new Error('API lỗi hoặc phiên đăng nhập hết hạn');
+      if (!u.ok || !a.ok || !p.ok || !t.ok) throw new Error('API lỗi hoặc phiên đăng nhập hết hạn');
       const usageData = await u.json();
       const assetsData = await a.json();
       const projectsData = await p.json();
+      const tagsData = await t.json();
       setUsage(usageData);
       setAssets(assetsData.items || []);
       setDocProjects(projectsData.items || []);
+      setTags(tagsData.items || []);
     } catch (e) {
       setErr(e.message || 'Không tải được dữ liệu');
     }
@@ -403,18 +419,26 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadData();
+    loadAlbums();
   }, []);
 
   useEffect(() => {
     function onKey(e) {
       if (activeIndex < 0) return;
-      if (e.key === 'Escape') setActiveIndex(-1);
-      if (e.key === 'ArrowLeft') setActiveIndex((i) => (i <= 0 ? albumFilteredPhotos.length - 1 : i - 1));
-      if (e.key === 'ArrowRight') setActiveIndex((i) => (i >= albumFilteredPhotos.length - 1 ? 0 : i + 1));
+      if (e.key === 'Escape') {
+        setActiveIndex(-1);
+        setShowInfo(false);
+        setShowAlbumPicker(false);
+        setShowTagPicker(false);
+      }
+      const list = tab === 'photos' ? albumFilteredPhotos : docsFiltered;
+      if (list.length === 0) return;
+      if (e.key === 'ArrowLeft') setActiveIndex((i) => (i <= 0 ? list.length - 1 : i - 1));
+      if (e.key === 'ArrowRight') setActiveIndex((i) => (i >= list.length - 1 ? 0 : i + 1));
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activeIndex, albumFilteredPhotos.length]);
+  }, [activeIndex, albumFilteredPhotos.length, docsFiltered.length, tab]);
 
 
   async function uploadLargeFileByChunks(file) {
@@ -677,8 +701,78 @@ export default function DashboardPage() {
     }
   }
 
+  async function loadTags() {
+    try {
+      const r = await fetch(`${api}/api/assets/tags`, { credentials: 'include' });
+      if (!r.ok) throw new Error('Không tải được danh mục nhãn');
+      const data = await r.json();
+      setTags(data.items || []);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function toggleTagSelection(name) {
+    setSelectedTagsForActive((prev) =>
+      prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]
+    );
+  }
+
+  function createNewTagInSelection(name) {
+    const trimmed = (name || '').trim().toLowerCase();
+    if (!trimmed) return;
+    setSelectedTagsForActive((prev) =>
+      prev.includes(trimmed) ? prev : [...prev, trimmed]
+    );
+    setTags((prev) => {
+      if (prev.some((t) => t.name.toLowerCase() === trimmed)) return prev;
+      return [...prev, { name: trimmed, count: 0 }];
+    });
+  }
+
+  async function saveActiveTags() {
+    if (!active?.id) return;
+    try {
+      const r = await fetch(`${api}/api/assets/${active.id}/tags`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: selectedTagsForActive }),
+      });
+      if (!r.ok) throw new Error('Cập nhật nhãn thất bại');
+      await loadData();
+      await loadTags();
+      setShowTagPicker(false);
+      setMsg('Đã cập nhật danh sách nhãn thành công');
+    } catch (e) {
+      setMsg(`Lỗi lưu nhãn: ${e.message}`);
+    }
+  }
+
+  function toggleFilterTag(name) {
+    setSelectedFilterTags((prev) =>
+      prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]
+    );
+  }
+
+  function docIconOf(item) {
+    const ext = (item.originalName || '').split('.').pop().toLowerCase();
+    if (['pdf'].includes(ext)) return '📕';
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return '📊';
+    if (['doc', 'docx'].includes(ext)) return '📘';
+    if (['ppt', 'pptx'].includes(ext)) return '📙';
+    if (['zip', 'rar', 'tar', 'gz', '7z'].includes(ext)) return '📦';
+    if (['txt', 'md', 'json'].includes(ext)) return '📝';
+    return '📄';
+  }
+
   function openPhoto(id) {
     const idx = albumFilteredPhotos.findIndex((x) => x.id === id);
+    if (idx >= 0) setActiveIndex(idx);
+  }
+
+  function openDoc(id) {
+    const idx = docsFiltered.findIndex((x) => x.id === id);
     if (idx >= 0) setActiveIndex(idx);
   }
 
@@ -809,6 +903,28 @@ export default function DashboardPage() {
                     Bỏ lọc loại cụ thể
                   </button>
                 </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="tagsSection">
+          <div className="tagsHeader">Tags / Nhãn</div>
+          {tags.length === 0 ? (
+            <div className="subHint">Chưa có nhãn nào.</div>
+          ) : (
+            <div className="tagCloud">
+              {tags.map((t) => {
+                const isActive = selectedFilterTags.includes(t.name);
+                return (
+                  <button key={t.name} className={`tagChip ${isActive ? 'active' : ''}`} onClick={() => toggleFilterTag(t.name)}>
+                    <span className="name">#{t.name}</span>
+                    <span className="count">{t.count}</span>
+                  </button>
+                );
+              })}
+              {selectedFilterTags.length > 0 && (
+                <button className="tagChipClear" onClick={() => setSelectedFilterTags([])}>Bỏ lọc</button>
               )}
             </div>
           )}
@@ -955,7 +1071,7 @@ export default function DashboardPage() {
                     const src = `${api}/api/assets/_media/original/${d.id}`;
                     const picked = selectedIds.includes(d.id);
                     return (
-                      <div key={d.id} className={`docCard ${picked ? 'picked' : ''}`} {...cardHandlers(d, () => window.open(src, '_blank'))} style={{ animationDelay: `${(idx % 24) * 0.02}s` }}>
+                      <div key={d.id} className={`docCard ${picked ? 'picked' : ''}`} {...cardHandlers(d, () => openDoc(d.id))} style={{ animationDelay: `${(idx % 24) * 0.02}s` }}>
                         <div className="docName">{d.originalName}</div>
                         <div className="docMeta">{fmtBytes(d.size)} · {d.mime || 'unknown'}</div>
                         {picked && <div className="badge">✓</div>}
@@ -970,13 +1086,14 @@ export default function DashboardPage() {
       </main>
 
       {active && (
-        <div className="viewer" onClick={() => setActiveIndex(-1)}>
-          <button className="nav left" onClick={(e) => { e.stopPropagation(); setActiveIndex((i) => (i <= 0 ? albumFilteredPhotos.length - 1 : i - 1)); }}>‹</button>
+        <div className="viewer" onClick={() => { setActiveIndex(-1); setShowInfo(false); setShowAlbumPicker(false); setShowTagPicker(false); }}>
+          <button className="nav left" onClick={(e) => { e.stopPropagation(); const list = tab === 'photos' ? albumFilteredPhotos : docsFiltered; if (list.length > 0) setActiveIndex((i) => (i <= 0 ? list.length - 1 : i - 1)); }}>‹</button>
           <div className="stage" onClick={(e) => e.stopPropagation()}>
             <div className="stageTitle">{active.originalName}</div>
-            {active.type === 'image' ? (
+            {active.type === 'image' && (
               <img key={active.id} src={`${api}/api/assets/_media/original/${active.id}`} alt={active.originalName} className={`full mediaEnter ${activeMediaFit}`} />
-            ) : (
+            )}
+            {active.type === 'video' && (
               <SmartVideo
                 key={active.id}
                 hlsSrc={`${api}/api/assets/_media/hls/${active.id}/master.m3u8?v=${encodeURIComponent(active.processingFinishedAt || active.uploadedAt || active.id)}`}
@@ -989,23 +1106,49 @@ export default function DashboardPage() {
                 onMeta={({ w, h }) => setActiveMediaFit(h > w ? 'contain-tall' : 'contain-wide')}
               />
             )}
+            {active.type !== 'image' && active.type !== 'video' && (
+              <div className="docPreviewBlock mediaEnter">
+                <div className="docIcon">{docIconOf(active)}</div>
+                <div className="docName">{active.originalName}</div>
+                <a href={`${api}/api/assets/_media/original/${active.id}`} target="_blank" rel="noreferrer" className="ghost" style={{ marginTop: '16px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <span>Mở tài liệu</span>
+                  <span>↗</span>
+                </a>
+              </div>
+            )}
           </div>
-          <button className="nav right" onClick={(e) => { e.stopPropagation(); setActiveIndex((i) => (i >= albumFilteredPhotos.length - 1 ? 0 : i + 1)); }}>›</button>
+          <button className="nav right" onClick={(e) => { e.stopPropagation(); const list = tab === 'photos' ? albumFilteredPhotos : docsFiltered; if (list.length > 0) setActiveIndex((i) => (i >= list.length - 1 ? 0 : i + 1)); }}>›</button>
           <button className="topBtn infoBtn" onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}>i</button>
-          <button className="topBtn albumBtn" onClick={async (e) => {
+          {active.type !== 'file' && (
+            <button className="topBtn albumBtn" onClick={async (e) => {
+              e.stopPropagation();
+              try {
+                await loadAlbums();
+                if (!showAlbumPicker && active) {
+                  const current = active.albumNames || (active.albumName ? [active.albumName] : []);
+                  setSelectedAlbumsForActive(current);
+                }
+                setShowAlbumPicker((v) => !v);
+                setShowTagPicker(false);
+              } catch (er) {
+                setMsg('Không tải được album');
+              }
+            }}>＋</button>
+          )}
+          <button className="topBtn tagBtn" onClick={async (e) => {
             e.stopPropagation();
             try {
-              await loadAlbums();
-              if (!showAlbumPicker && active) {
-                const current = active.albumNames || (active.albumName ? [active.albumName] : []);
-                setSelectedAlbumsForActive(current);
+              await loadTags();
+              if (!showTagPicker && active) {
+                setSelectedTagsForActive(active.tags || []);
               }
-              setShowAlbumPicker((v) => !v);
+              setShowTagPicker((v) => !v);
+              setShowAlbumPicker(false);
             } catch (er) {
-              setMsg('Không tải được album');
+              setMsg('Không tải được nhãn');
             }
-          }}>＋</button>
-          <button className="close" onClick={(e) => { e.stopPropagation(); setActiveIndex(-1); setShowInfo(false); setShowAlbumPicker(false); }}>✕</button>
+          }}>🏷</button>
+          <button className="close" onClick={(e) => { e.stopPropagation(); setActiveIndex(-1); setShowInfo(false); setShowAlbumPicker(false); setShowTagPicker(false); }}>✕</button>
 
           {showInfo && active && (
             <div className="infoPanel" onClick={(e) => e.stopPropagation()}>
@@ -1014,7 +1157,8 @@ export default function DashboardPage() {
               <div>Dung lượng: {fmtBytes(active.size)}</div>
               <div>Taken: {active.takenAt || '-'}</div>
               <div>Upload: {active.uploadedAt || '-'}</div>
-              <div>Album: {(active.albumNames || []).join(', ') || '-'}</div>
+              {active.type !== 'file' && <div>Album: {(active.albumNames || []).join(', ') || '-'}</div>}
+              <div>Tags: {(active.tags || []).map(t => `#${t}`).join(', ') || '-'}</div>
             </div>
           )}
 
@@ -1037,6 +1181,29 @@ export default function DashboardPage() {
               <div className="albumActions">
                 <button className="albumBtnSave" onClick={saveActiveAlbums}>Lưu</button>
                 <button className="albumBtnCancel" onClick={() => setShowAlbumPicker(false)}>Hủy</button>
+              </div>
+            </div>
+          )}
+
+          {showTagPicker && (
+            <div className="tagPanel" onClick={(e) => e.stopPropagation()}>
+              <input className="tagSearch" placeholder="Tìm hoặc tạo nhãn..." value={tagQuery} onChange={(e) => setTagQuery(e.target.value)} />
+              <button className="tagCreate" onClick={() => createNewTagInSelection(tagQuery || window.prompt('Tên nhãn mới:') || '')}>+ Tạo nhãn mới</button>
+              <div className="tagList">
+                {tags.filter((t) => t.name.toLowerCase().includes(tagQuery.toLowerCase())).map((t) => {
+                  const isSelected = selectedTagsForActive.includes(t.name);
+                  return (
+                    <button key={t.name} className={`tagItem ${isSelected ? 'selected' : ''}`} onClick={() => toggleTagSelection(t.name)}>
+                      <span className="chk">{isSelected ? '✓' : ''}</span>
+                      <span>#{t.name}</span>
+                      <span className="cnt">({t.count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="tagActions">
+                <button className="tagBtnSave" onClick={saveActiveTags}>Lưu</button>
+                <button className="tagBtnCancel" onClick={() => setShowTagPicker(false)}>Hủy</button>
               </div>
             </div>
           )}
@@ -1906,6 +2073,244 @@ export default function DashboardPage() {
           overflow: hidden;
           opacity: 0;
           pointer-events: none;
+        }
+
+        .tagBtn { right: 168px; }
+        .tagsSection {
+          margin: 16px 0;
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          padding-top: 16px;
+        }
+        .tagsHeader {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #71717a;
+          margin-bottom: 10px;
+        }
+        .tagCloud {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .tagChip {
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: rgba(255, 255, 255, 0.02);
+          color: #a1a1aa;
+          border-radius: 6px;
+          padding: 4px 8px;
+          cursor: pointer;
+          font-size: 11px;
+          font-weight: 500;
+          font-family: inherit;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          transition: all 0.2s ease;
+        }
+        .tagChip:hover {
+          background: rgba(255, 255, 255, 0.06);
+          color: #e4e4e7;
+          border-color: rgba(255, 255, 255, 0.1);
+        }
+        .tagChip.active {
+          background: #ffffff;
+          border-color: #ffffff;
+          color: #09090b;
+          box-shadow: 0 4px 10px rgba(255, 255, 255, 0.1);
+        }
+        .tagChip.active .count {
+          color: rgba(9, 9, 11, 0.6);
+          background: rgba(9, 9, 11, 0.1);
+        }
+        .tagChip .count {
+          font-size: 9px;
+          color: #71717a;
+          background: rgba(255, 255, 255, 0.04);
+          padding: 1px 4px;
+          border-radius: 4px;
+        }
+        .tagChipClear {
+          border: 1px solid rgba(239, 68, 68, 0.15);
+          background: rgba(239, 68, 68, 0.05);
+          color: #fca5a5;
+          border-radius: 6px;
+          padding: 4px 8px;
+          cursor: pointer;
+          font-size: 11px;
+          font-weight: 600;
+          font-family: inherit;
+          transition: all 0.2s ease;
+        }
+        .tagChipClear:hover {
+          background: rgba(239, 68, 68, 0.15);
+          color: #ffffff;
+        }
+
+        .tagPanel {
+          position: absolute;
+          right: 24px;
+          top: 76px;
+          width: 300px;
+          max-height: 60vh;
+          overflow-y: auto;
+          background: rgba(15, 15, 18, 0.85);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 16px;
+          padding: 12px;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(12px);
+          animation: panelEnter 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          transform-origin: top right;
+        }
+        .tagSearch {
+          width: 100%;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: #fff;
+          border-radius: 8px;
+          padding: 8px 10px;
+          margin-bottom: 8px;
+          font-family: inherit;
+          font-size: 13px;
+          outline: none;
+          box-sizing: border-box;
+        }
+        .tagSearch:focus {
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+        .tagCreate {
+          width: 100%;
+          background: #ffffff;
+          border: 0;
+          color: #09090b;
+          border-radius: 8px;
+          padding: 8px;
+          margin-bottom: 8px;
+          font-weight: 600;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+        .tagCreate:hover {
+          background: #f4f4f5;
+        }
+        .tagList {
+          display: grid;
+          gap: 4px;
+        }
+        .tagItem {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          text-align: left;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          color: #e4e4e7;
+          border-radius: 8px;
+          padding: 8px 10px;
+          font-size: 12px;
+          font-family: inherit;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .tagItem:hover {
+          background: rgba(255, 255, 255, 0.06);
+          color: #ffffff;
+        }
+        .tagItem.selected {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.2);
+          color: #ffffff;
+        }
+        .tagItem .chk {
+          width: 14px;
+          height: 14px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+          display: grid;
+          place-items: center;
+          font-size: 10px;
+          color: #09090b;
+          background: transparent;
+          transition: all 0.2s ease;
+        }
+        .tagItem.selected .chk {
+          background: #ffffff;
+          border-color: #ffffff;
+          color: #09090b;
+        }
+        .tagItem .cnt {
+          margin-left: auto;
+          font-size: 11px;
+          color: #71717a;
+        }
+        .tagActions {
+          display: flex;
+          gap: 8px;
+          margin-top: 12px;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          padding-top: 10px;
+        }
+        .tagBtnSave {
+          flex: 1;
+          background: #ffffff;
+          color: #09090b;
+          border: 0;
+          border-radius: 8px;
+          padding: 8px;
+          font-weight: 600;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+        .tagBtnSave:hover {
+          background: #f4f4f5;
+        }
+        .tagBtnCancel {
+          background: rgba(255, 255, 255, 0.05);
+          color: #e4e4e7;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          padding: 8px 12px;
+          font-weight: 600;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+        .tagBtnCancel:hover {
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .docPreviewBlock {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 20px;
+          padding: 40px;
+          width: 320px;
+          max-width: 90%;
+          text-align: center;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        .docPreviewBlock .docIcon {
+          font-size: 64px;
+          margin-bottom: 16px;
+          filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3));
+        }
+        .docPreviewBlock .docName {
+          font-size: 14px;
+          font-weight: 600;
+          color: #ffffff;
+          line-height: 1.4;
+          word-break: break-all;
         }
 
         @keyframes fadeIn { from { opacity: 0; transform: scale(.99); } to { opacity: 1; transform: scale(1); } }

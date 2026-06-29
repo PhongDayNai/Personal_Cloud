@@ -15,6 +15,8 @@ const {
   listAlbums,
   assignAlbum,
   setAssetAlbums,
+  listTags,
+  setAssetTags,
   listDocProjects,
   assignDocProject,
   moveToTrash,
@@ -241,6 +243,22 @@ router.get('/_media/original/:id', requireAuth, (req, res) => {
 router.put('/:id/albums', requireAuth, (req, res) => {
   const albumNames = Array.isArray(req.body?.albumNames) ? req.body.albumNames : [];
   const result = setAssetAlbums(req.params.id, albumNames);
+  if (result.updated === 0) return res.status(404).json({ message: 'Asset not found' });
+  return res.json({ ok: true, ...result });
+});
+
+router.get('/tags', requireAuth, (req, res) => {
+  try {
+    const items = listTags();
+    return res.json({ ok: true, items });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+});
+
+router.put('/:id/tags', requireAuth, (req, res) => {
+  const tags = Array.isArray(req.body?.tags) ? req.body.tags : [];
+  const result = setAssetTags(req.params.id, tags);
   if (result.updated === 0) return res.status(404).json({ message: 'Asset not found' });
   return res.json({ ok: true, ...result });
 });
