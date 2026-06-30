@@ -16,6 +16,18 @@ const Icons = {
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
+  ),
+  Settings: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  ),
+  User: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
   )
 };
 
@@ -279,7 +291,32 @@ export default function DashboardPage() {
   // State và Handler cho đổi mật khẩu & logout phiên khác (Phase 1)
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [user, setUser] = useState(null);
-  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [profileNameInput, setProfileNameInput] = useState('');
+  const [updateProfileMsg, setUpdateProfileMsg] = useState('');
+
+  async function handleUpdateProfile(e) {
+    e.preventDefault();
+    setUpdateProfileMsg('');
+    try {
+      const res = await fetch(`${api}/api/auth/update-profile`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: profileNameInput }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        setUpdateProfileMsg('Cập nhật tên hiển thị thành công!');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setUpdateProfileMsg(`Lỗi: ${data.message || 'Không cập nhật được hồ sơ'}`);
+      }
+    } catch (err) {
+      setUpdateProfileMsg(`Lỗi: ${err.message}`);
+    }
+  }
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -313,7 +350,7 @@ export default function DashboardPage() {
       });
 
       if (res.ok) {
-        setShowChangePasswordModal(false);
+        setShowSettingsModal(false);
         setOldPassword('');
         setNewPassword('');
         setConfirmPassword('');
@@ -523,7 +560,7 @@ export default function DashboardPage() {
       setUser(meData?.user);
       if (meData?.user?.mustChangePassword) {
         setMustChangePassword(true);
-        setShowChangePasswordModal(true);
+        setShowSettingsModal(true);
       }
 
       const [u, a, p, t] = await Promise.all([
@@ -1129,9 +1166,9 @@ export default function DashboardPage() {
                 </div>
               </div>
               <hr className="popoverDivider" />
-              <button className="popoverItem" onClick={() => { setShowChangePasswordModal(true); setShowProfileMenu(false); }}>
-                <span className="popoverIcon"><Icons.Lock /></span>
-                <span>Đổi mật khẩu</span>
+              <button className="popoverItem" onClick={() => { setShowSettingsModal(true); setProfileNameInput(user?.name || ''); setUpdateProfileMsg(''); setShowProfileMenu(false); }}>
+                <span className="popoverIcon"><Icons.Settings /></span>
+                <span>Cài đặt</span>
               </button>
               <button className="popoverItem" onClick={() => { handleLogout(); setShowProfileMenu(false); }}>
                 <span className="popoverIcon"><Icons.LogOut /></span>
@@ -1418,7 +1455,7 @@ export default function DashboardPage() {
           )}
         </div>
       )}
-      {showChangePasswordModal && (
+      {showSettingsModal && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -1431,7 +1468,7 @@ export default function DashboardPage() {
           alignItems: 'center',
           zIndex: 9999,
           backdropFilter: 'blur(4px)',
-        }} onClick={() => { if (!mustChangePassword) setShowChangePasswordModal(false); }}>
+        }} onClick={() => { if (!mustChangePassword) setShowSettingsModal(false); }}>
           <div style={{
             backgroundColor: '#18181b',
             border: '1px solid #27272a',
@@ -1441,8 +1478,60 @@ export default function DashboardPage() {
             maxWidth: '400px',
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)',
             color: '#f4f4f5',
-            fontFamily: 'sans-serif'
+            fontFamily: 'sans-serif',
+            maxHeight: '85vh',
+            overflowY: 'auto'
           }} onClick={(e) => e.stopPropagation()}>
+            
+            {!mustChangePassword && (
+              <button 
+                onClick={() => setShowSettingsModal(false)}
+                style={{
+                  float: 'right',
+                  background: 'transparent',
+                  border: 0,
+                  color: '#71717a',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  marginTop: '-10px',
+                  marginRight: '-10px'
+                }}
+              >
+                ✕
+              </button>
+            )}
+
+            <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 18, color: '#fff' }}>
+              Hồ sơ cá nhân
+            </h3>
+            <form onSubmit={handleUpdateProfile} style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: '#a1a1aa', marginBottom: 4 }}>Tên hiển thị</label>
+                <input 
+                  type="text" 
+                  value={profileNameInput} 
+                  onChange={(e) => setProfileNameInput(e.target.value)} 
+                  required 
+                  style={{ width: '100%', padding: '10px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #3f3f46', backgroundColor: '#09090b', color: '#fff' }}
+                />
+              </div>
+              {updateProfileMsg && (
+                <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: updateProfileMsg.startsWith('Lỗi') ? '#450a0a' : 'rgba(16, 185, 129, 0.08)', color: updateProfileMsg.startsWith('Lỗi') ? '#fca5a5' : '#a7f3d0', fontSize: 13, border: `1px solid ${updateProfileMsg.startsWith('Lỗi') ? '#7f1d1d' : 'rgba(16, 185, 129, 0.12)'}` }}>
+                  {updateProfileMsg}
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button 
+                  type="submit"
+                  style={{ padding: '8px 16px', borderRadius: '6px', border: 0, backgroundColor: '#ffffff', color: '#000', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Lưu thay đổi
+                </button>
+              </div>
+            </form>
+
+            <hr style={{ border: 0, borderTop: '1px solid #27272a', margin: '20px 0' }} />
+
             <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 18, color: '#fff' }}>
               {mustChangePassword ? 'Bắt buộc đổi mật khẩu lần đầu' : 'Đổi mật khẩu tài khoản'}
             </h3>
@@ -1490,15 +1579,6 @@ export default function DashboardPage() {
               )}
 
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 12 }}>
-                {!mustChangePassword && (
-                  <button 
-                    type="button" 
-                    onClick={() => setShowChangePasswordModal(false)}
-                    style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #3f3f46', backgroundColor: 'transparent', color: '#fff', cursor: 'pointer' }}
-                  >
-                    Hủy
-                  </button>
-                )}
                 <button 
                   type="submit"
                   style={{ padding: '8px 16px', borderRadius: '6px', border: 0, backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}

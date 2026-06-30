@@ -272,7 +272,7 @@ router.post('/logout', async (req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   // Lấy dữ liệu mới nhất từ DB để đảm bảo cờ must_change_password cập nhật đúng
   try {
-    const userRes = await db.query('SELECT id, email, name, role, must_change_password FROM users WHERE id = $1', [req.user.sub]);
+    const userRes = await db.query('SELECT id, email, name, role, must_change_password, avatar_url FROM users WHERE id = $1', [req.user.sub]);
     if (userRes.rows.length === 0) {
       return res.status(401).json({ message: 'Người dùng không tồn tại' });
     }
@@ -283,7 +283,8 @@ router.get('/me', requireAuth, async (req, res) => {
         email: user.email,
         name: user.name,
         role: user.role,
-        mustChangePassword: user.must_change_password
+        mustChangePassword: user.must_change_password,
+        avatarUrl: user.avatar_url
       }
     });
   } catch (err) {
@@ -346,6 +347,48 @@ router.post('/logout-others', requireAuth, async (req, res) => {
     return res.json({ ok: true, message: 'Đã đăng xuất khỏi các thiết bị khác thành công' });
   } catch (err) {
     console.error('[Auth Route] Logout others error:', err);
+    return res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
+  }
+});
+
+// 8. Cập nhật hồ sơ (Đổi tên)
+router.post('/update-profile', requireAuth, async (req, res) => {
+  const { name } = req.body || {};
+  if (!name || !name.trim()) {
+    return res.status(400).json({ message: 'Tên hiển thị không được bỏ trống' });
+  }
+
+  try {
+    await db.query('UPDATE users SET name = $1 WHERE id = $2', [name.trim(), req.user.sub]);
+
+    // Trả về thông tin user mới
+    const userRes = await db.query('SELECT id, email, name, role, must_change_password, avatar_url FROM users WHERE id = $1', [req.user.sub]);
+    const user = userRes.rows[0];
+
+    // Cập nhật lại Access Token mới chứa Name mới để đồng bộ các nơi
+    const newAccess = signAccess({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+      mustChangePassword: user.must_change_password
+    });
+    res.cookie(ACCESS_COOKIE, newAccess, cookieOpts());
+
+    return res.json({
+      ok: true,
+      message: 'Cập nhật hồ sơ thành công',
+      user: {
+        sub: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        mustChangePassword: user.must_change_password,
+        avatarUrl: user.avatar_url
+      }
+    });
+  } catch (err) {
+    console.error('[Auth Route] Update profile error:', err);
     return res.status(500).json({ message: 'Lỗi máy chủ nội bộ' });
   }
 });
