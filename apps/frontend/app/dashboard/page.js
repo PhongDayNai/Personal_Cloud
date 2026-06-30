@@ -332,6 +332,14 @@ export default function DashboardPage() {
   const [expiresInHoursInput, setExpiresInHoursInput] = useState('');
   const [expiresDateInput, setExpiresDateInput] = useState('');
   const [createInviteMsg, setCreateInviteMsg] = useState('');
+  const [toastMsg, setToastMsg] = useState('');
+
+  function showToast(msg) {
+    setToastMsg(msg);
+    setTimeout(() => {
+      setToastMsg((curr) => curr === msg ? '' : curr);
+    }, 2500);
+  }
 
   const todayStr = useMemo(() => {
     const d = new Date();
@@ -1578,7 +1586,7 @@ export default function DashboardPage() {
             display: 'flex',
             gap: '20px',
             width: '90%',
-            maxWidth: '820px',
+            maxWidth: '880px',
             height: '430px',
             alignItems: 'stretch',
           }} onClick={(e) => e.stopPropagation()}>
@@ -2105,7 +2113,31 @@ export default function DashboardPage() {
                                 const isActive = inv.is_active && !isExpired && (inv.max_uses === null || inv.uses_count < inv.max_uses);
                                 return (
                                   <tr key={inv.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s' }} className="tableRowHover">
-                                    <td style={{ padding: '8px 10px', fontWeight: '700', color: '#3b82f6', fontFamily: 'monospace', fontSize: '13px' }}>{inv.token}</td>
+                                    <td 
+                                      onClick={() => {
+                                        if (isActive) {
+                                          navigator.clipboard.writeText(inv.token);
+                                          showToast(`Đã sao chép mã ${inv.token} vào clipboard!`);
+                                        } else {
+                                          showToast('Mã đã khóa, không thể sử dụng tiếp vui lòng tạo cái mới!');
+                                        }
+                                      }}
+                                      title={isActive ? "Click để sao chép mã" : "Mã đã khóa, không thể sử dụng"}
+                                      style={{ 
+                                        padding: '8px 10px', 
+                                        fontWeight: '700', 
+                                        color: isActive ? '#3b82f6' : '#71717a', 
+                                        fontFamily: 'monospace', 
+                                        fontSize: '13px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s ease',
+                                        textDecoration: isActive ? 'none' : 'line-through'
+                                      }}
+                                      onMouseEnter={(e) => { if (isActive) e.currentTarget.style.color = '#60a5fa'; }}
+                                      onMouseLeave={(e) => { if (isActive) e.currentTarget.style.color = '#3b82f6'; }}
+                                    >
+                                      {inv.token}
+                                    </td>
                                     <td style={{ padding: '8px 10px' }}>{inv.uses_count}/{inv.max_uses || '∞'}</td>
                                     <td style={{ padding: '8px 10px', color: '#71717a' }}>
                                       {inv.expires_at ? new Date(inv.expires_at).toLocaleDateString('vi-VN') : 'Vô hạn'}
@@ -2201,6 +2233,28 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {toastMsg && (
+        <div style={{
+          position: 'fixed',
+          bottom: '32px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: '#18181b',
+          color: '#ffffff',
+          padding: '8px 16px',
+          borderRadius: '6px',
+          fontSize: '12.5px',
+          fontWeight: '600',
+          boxShadow: '0 10px 20px -3px rgba(0,0,0,0.6), 0 4px 6px -2px rgba(0,0,0,0.6)',
+          zIndex: 10000,
+          border: '1px solid rgba(255,255,255,0.08)',
+          pointerEvents: 'none',
+          boxSizing: 'border-box'
+        }}>
+          {toastMsg}
         </div>
       )}
 
