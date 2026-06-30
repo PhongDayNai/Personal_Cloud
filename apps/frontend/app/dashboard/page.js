@@ -2,6 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+// Icons SVG đồng bộ (Phase 1)
+const Icons = {
+  Lock: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  ),
+  LogOut: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  )
+};
+
 function getApiOrigin() {
   return process.env.NEXT_PUBLIC_API_ORIGIN || 'http://localhost:45174';
 }
@@ -259,6 +276,84 @@ export default function DashboardPage() {
   const [expandedGroups, setExpandedGroups] = useState({});
   const [activeMediaFit, setActiveMediaFit] = useState('contain');
 
+  // State và Handler cho đổi mật khẩu & logout phiên khác (Phase 1)
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [user, setUser] = useState(null);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changePasswordMsg, setChangePasswordMsg] = useState('');
+  const [showLogoutOthersConfirm, setShowLogoutOthersConfirm] = useState(false);
+
+  async function handleLogout() {
+    try {
+      await fetch(`${api}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+      window.location.href = '/login';
+    } catch (e) {
+      setErr('Không thể đăng xuất');
+    }
+  }
+
+  async function handleChangePassword(e) {
+    e.preventDefault();
+    setChangePasswordMsg('');
+    if (newPassword !== confirmPassword) {
+      setChangePasswordMsg('Lỗi: Mật khẩu mới không trùng khớp');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${api}/api/auth/change-password`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+      });
+
+      if (res.ok) {
+        setShowChangePasswordModal(false);
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setChangePasswordMsg('');
+        
+        if (mustChangePassword) {
+          setMustChangePassword(false);
+        }
+        
+        // Hiện popup hỏi đăng xuất thiết bị khác
+        setShowLogoutOthersConfirm(true);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setChangePasswordMsg(`Lỗi: ${data.message || 'Không đổi được mật khẩu'}`);
+      }
+    } catch (err) {
+      setChangePasswordMsg(`Lỗi: ${err.message || 'Lỗi kết nối'}`);
+    }
+  }
+
+  async function handleLogoutOthers(confirm) {
+    if (confirm) {
+      try {
+        const res = await fetch(`${api}/api/auth/logout-others`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (res.ok) {
+          setMsg('Đã đăng xuất khỏi tất cả các thiết bị khác thành công');
+        } else {
+          const data = await res.json().catch(() => ({}));
+          setErr(`Lỗi đăng xuất thiết bị khác: ${data.message}`);
+        }
+      } catch (err) {
+        setErr(`Lỗi kết nối: ${err.message}`);
+      }
+    }
+    setShowLogoutOthersConfirm(false);
+  }
+
   const longPressRef = useRef(null);
   const suppressClickRef = useRef(null);
   const usageCardRef = useRef(null);
@@ -424,6 +519,12 @@ export default function DashboardPage() {
         window.location.href = '/login';
         return;
       }
+      const meData = await me.json();
+      setUser(meData?.user);
+      if (meData?.user?.mustChangePassword) {
+        setMustChangePassword(true);
+        setShowChangePasswordModal(true);
+      }
 
       const [u, a, p, t] = await Promise.all([
         fetch(`${api}/api/storage/usage`, { credentials: 'include' }),
@@ -460,6 +561,13 @@ export default function DashboardPage() {
 
     return () => clearInterval(timer);
   }, [assets, api]);
+
+  useEffect(() => {
+    if (!showProfileMenu) return;
+    const handleGlobalClick = () => setShowProfileMenu(false);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, [showProfileMenu]);
 
   useEffect(() => {
     function onKey(e) {
@@ -840,7 +948,8 @@ export default function DashboardPage() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="logo">AetherCloud</div>
+        <div className="sidebarMenu">
+          <div className="logo">AetherCloud</div>
 
         <button className={`navItem ${tab === 'photos' && collectionView === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); setSelectionMode(false); setSelectedIds([]); }}>
           <span className="ico">🖼</span><span>Tất cả ảnh/video</span><span className="count">{basePhotoAssets.filter((x) => !x.isDeleted).length}</span>
@@ -968,6 +1077,7 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+        </div>
 
         <div className="storageCard" ref={usageCardRef}>
           <div className="label">Dung lượng</div>
@@ -988,6 +1098,47 @@ export default function DashboardPage() {
               })()}
             </>
           ) : <small>Đang tải...</small>}
+        </div>
+
+        <div className="profileSection" onClick={(e) => e.stopPropagation()}>
+          <div className="profileBtn" onClick={(e) => { e.stopPropagation(); setShowProfileMenu(!showProfileMenu); }}>
+            <div className="profileAvatar">
+              {user ? user.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="profileMeta">
+              <div className="profileName">{user ? (user.role === 'admin' ? user.name : `Chào ${user.name},`) : 'Đang tải...'}</div>
+              <div className="profileRole">{user ? (user.role === 'admin' ? 'Quản trị viên' : 'Thành viên') : ''}</div>
+            </div>
+            <div className="profileChevron">▾</div>
+          </div>
+          
+          {showProfileMenu && user && (
+            <div className="profilePopover" onClick={(e) => e.stopPropagation()}>
+              <div className="popoverUserHeader">
+                <div className="popoverUserEmail">{user.email}</div>
+                <div className="popoverUserAvatar">
+                  {user.avatarUrl ? (
+                    <img src={user.avatarUrl} alt={user.name} className="avatarImg" />
+                  ) : (
+                    user.name.charAt(0).toUpperCase()
+                  )}
+                </div>
+                <div className="popoverUserName">{user.role === 'admin' ? user.name : `Chào ${user.name},`}</div>
+                <div className="popoverUserBadge">
+                  {user.role === 'admin' ? 'Quản trị viên' : 'Thành viên'}
+                </div>
+              </div>
+              <hr className="popoverDivider" />
+              <button className="popoverItem" onClick={() => { setShowChangePasswordModal(true); setShowProfileMenu(false); }}>
+                <span className="popoverIcon"><Icons.Lock /></span>
+                <span>Đổi mật khẩu</span>
+              </button>
+              <button className="popoverItem" onClick={() => { handleLogout(); setShowProfileMenu(false); }}>
+                <span className="popoverIcon"><Icons.LogOut /></span>
+                <span>Đăng xuất</span>
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -1267,7 +1418,146 @@ export default function DashboardPage() {
           )}
         </div>
       )}
+      {showChangePasswordModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          backdropFilter: 'blur(4px)',
+        }} onClick={() => { if (!mustChangePassword) setShowChangePasswordModal(false); }}>
+          <div style={{
+            backgroundColor: '#18181b',
+            border: '1px solid #27272a',
+            padding: '28px',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '400px',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)',
+            color: '#f4f4f5',
+            fontFamily: 'sans-serif'
+          }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 18, color: '#fff' }}>
+              {mustChangePassword ? 'Bắt buộc đổi mật khẩu lần đầu' : 'Đổi mật khẩu tài khoản'}
+            </h3>
+            {mustChangePassword && (
+              <p style={{ fontSize: 13, color: '#a1a1aa', marginBottom: 20 }}>
+                Bạn đang sử dụng mật khẩu mặc định/tạm thời. Vui lòng đổi mật khẩu để tiếp tục sử dụng hệ thống.
+              </p>
+            )}
+            <form onSubmit={handleChangePassword} style={{ display: 'grid', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: '#a1a1aa', marginBottom: 4 }}>Mật khẩu cũ</label>
+                <input 
+                  type="password" 
+                  value={oldPassword} 
+                  onChange={(e) => setOldPassword(e.target.value)} 
+                  required 
+                  style={{ width: '100%', padding: '10px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #3f3f46', backgroundColor: '#09090b', color: '#fff' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: '#a1a1aa', marginBottom: 4 }}>Mật khẩu mới</label>
+                <input 
+                  type="password" 
+                  value={newPassword} 
+                  onChange={(e) => setNewPassword(e.target.value)} 
+                  required 
+                  style={{ width: '100%', padding: '10px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #3f3f46', backgroundColor: '#09090b', color: '#fff' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, color: '#a1a1aa', marginBottom: 4 }}>Xác nhận mật khẩu mới</label>
+                <input 
+                  type="password" 
+                  value={confirmPassword} 
+                  onChange={(e) => setConfirmPassword(e.target.value)} 
+                  required 
+                  style={{ width: '100%', padding: '10px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #3f3f46', backgroundColor: '#09090b', color: '#fff' }}
+                />
+              </div>
+              
+              {changePasswordMsg && (
+                <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: '#450a0a', color: '#fca5a5', fontSize: 13, border: '1px solid #7f1d1d' }}>
+                  {changePasswordMsg}
+                </div>
+              )}
 
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 12 }}>
+                {!mustChangePassword && (
+                  <button 
+                    type="button" 
+                    onClick={() => setShowChangePasswordModal(false)}
+                    style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #3f3f46', backgroundColor: 'transparent', color: '#fff', cursor: 'pointer' }}
+                  >
+                    Hủy
+                  </button>
+                )}
+                <button 
+                  type="submit"
+                  style={{ padding: '8px 16px', borderRadius: '6px', border: 0, backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Cập nhật
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showLogoutOthersConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          backdropFilter: 'blur(4px)',
+        }}>
+          <div style={{
+            backgroundColor: '#18181b',
+            border: '1px solid #27272a',
+            padding: '24px',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '400px',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)',
+            color: '#f4f4f5',
+            fontFamily: 'sans-serif',
+            textAlign: 'center'
+          }}>
+            <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 18, color: '#fff' }}>Đăng xuất thiết bị khác?</h3>
+            <p style={{ fontSize: 14, color: '#a1a1aa', lineHeight: '1.5', marginBottom: 20 }}>
+              Mật khẩu của bạn đã được thay đổi. Bạn có muốn đăng xuất khỏi tất cả các thiết bị khác để bảo mật tối đa tài khoản không?
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button 
+                onClick={() => handleLogoutOthers(false)}
+                style={{ padding: '10px 20px', borderRadius: '6px', border: '1px solid #3f3f46', backgroundColor: 'transparent', color: '#fff', cursor: 'pointer' }}
+              >
+                Không, giữ nguyên
+              </button>
+              <button 
+                onClick={() => handleLogoutOthers(true)}
+                style={{ padding: '10px 20px', borderRadius: '6px', border: 0, backgroundColor: '#dc2626', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                Có, đăng xuất hết
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .shell {
@@ -1409,12 +1699,182 @@ export default function DashboardPage() {
           padding: 6px 10px;
           font-style: italic;
         }
+        .sidebarMenu {
+          flex: 1;
+          overflow-y: auto;
+          margin-bottom: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          scrollbar-width: none;
+        }
+        .sidebarMenu::-webkit-scrollbar {
+          display: none;
+        }
         .storageCard {
-          margin-top: auto;
           background: rgba(255, 255, 255, 0.02);
           border: 1px solid rgba(255, 255, 255, 0.05);
           border-radius: 16px;
           padding: 14px;
+          margin-bottom: 12px;
+        }
+        .profileSection {
+          margin-top: auto;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          position: relative;
+          padding-top: 12px;
+        }
+        .profileBtn {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 8px;
+          transition: background 0.2s ease;
+        }
+        .profileBtn:hover {
+          background: rgba(255, 255, 255, 0.05);
+        }
+        .profileAvatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 15px;
+        }
+        .profileMeta {
+          flex: 1;
+          min-width: 0;
+        }
+        .profileName {
+          font-size: 13.5px;
+          font-weight: 600;
+          color: #fff;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .profileRole {
+          font-size: 11px;
+          color: #71717a;
+          margin-top: 2px;
+        }
+        .profileChevron {
+          color: #71717a;
+          font-size: 12px;
+        }
+        .profilePopover {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          left: 0;
+          width: 250px;
+          background: #18181b;
+          border: 1px solid #27272a;
+          border-radius: 14px;
+          box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.7);
+          z-index: 100;
+          padding: 20px 16px 12px 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          box-sizing: border-box;
+        }
+        .popoverUserHeader {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 100%;
+          text-align: center;
+        }
+        .popoverUserEmail {
+          font-size: 11px;
+          color: #71717a;
+          margin-bottom: 14px;
+          word-break: break-all;
+          width: 100%;
+        }
+        .popoverUserAvatar {
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 22px;
+          margin-bottom: 12px;
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        .avatarImg {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          object-fit: cover;
+        }
+        .popoverUserName {
+          font-size: 16px;
+          font-weight: 700;
+          color: #fff;
+          margin-bottom: 10px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+        }
+        .popoverUserBadge {
+          font-size: 10.5px;
+          font-weight: 600;
+          padding: 3px 10px;
+          border-radius: 99px;
+          background: rgba(59, 130, 246, 0.15);
+          color: #60a5fa;
+          border: 1px solid rgba(59, 130, 246, 0.2);
+          display: inline-block;
+          margin-bottom: 14px;
+        }
+        .popoverDivider {
+          border: 0;
+          height: 1px;
+          background: #27272a;
+          margin: 10px 0;
+          width: 100%;
+        }
+        .popoverItem {
+          width: 100%;
+          background: transparent;
+          border: 0;
+          padding: 10px 14px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          color: #e4e4e7;
+          font-size: 13.5px;
+          cursor: pointer;
+          text-align: left;
+          transition: background 0.15s ease, color 0.15s ease;
+          box-sizing: border-box;
+        }
+        .popoverItem:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: #fff;
+        }
+        .popoverIcon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #71717a;
+        }
+        .popoverItem:hover .popoverIcon {
+          color: #fff;
         }
         .storageCard .label {
           font-size: 11px;
