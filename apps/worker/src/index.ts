@@ -1,4 +1,5 @@
-require('dotenv').config();
+import dotenv from 'dotenv';
+dotenv.config();
 
 const concurrency = Number(process.env.WORKER_CONCURRENCY || 2);
 
