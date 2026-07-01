@@ -8,7 +8,8 @@
     "build": "tsc",
     "set-admin": "tsx src/scripts/seed-admin.ts",
     "migrate-to-db": "tsx src/scripts/migrate-to-db.ts",
-    "create-invite": "tsx src/scripts/create-invite.ts"
+    "create-invite": "tsx src/scripts/create-invite.ts",
+    "clean-orphaned-files": "tsx src/scripts/clean-orphaned-files.ts"
   },
   "dependencies": {
     "cookie-parser": "^1.4.6",

@@ -15,6 +15,7 @@ import adminRoutes from './routes/admin';
 import spacesRoutes from './routes/spaces';
 
 import { resolveStoragePath } from './lib/assets';
+import { runOrphanedCleanup } from './lib/cleaner';
 
 const app = express();
 const port = Number(process.env.BE_PORT || 45174);
@@ -65,4 +66,9 @@ app.get('/api', (_req: Request, res: Response) => {
 
 app.listen(port, () => {
   console.log(`aethercloud-be listening on :${port}`);
+  
+  // Chạy tự động dọn dẹp file mồ côi (thực hiện xóa thật) khi khởi động server
+  runOrphanedCleanup(false).catch((err) => {
+    console.error('[Startup] Lỗi khi chạy tự động dọn dẹp file mồ côi:', err.message);
+  });
 });
