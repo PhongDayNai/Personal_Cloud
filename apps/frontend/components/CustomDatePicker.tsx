@@ -217,11 +217,11 @@ export default function CustomDatePicker({
         onClick={() => setIsOpen(!isOpen)}
         style={{
           width: "100%",
-          backgroundColor: "rgba(0, 0, 0, 0.2)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
+          backgroundColor: "var(--bg-input)",
+          border: "1px solid var(--border-input)",
           borderRadius: "6px",
           padding: "9px 12px",
-          color: "#ffffff",
+          color: "var(--text-primary)",
           fontSize: "13.5px",
           outline: "none",
           transition: "all 0.15s ease",
@@ -232,13 +232,13 @@ export default function CustomDatePicker({
           userSelect: "none",
           boxSizing: "border-box"
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-input-focus)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-input)"; }}
       >
-        <span style={{ color: value ? "#ffffff" : "#71717a" }}>
+        <span style={{ color: value ? "var(--text-primary)" : "var(--text-muted)" }}>
           {getFormattedValue()}
         </span>
-        <span style={{ display: "inline-flex", alignItems: "center", color: "#3b82f6", opacity: 0.8 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", color: "var(--accent-color)", opacity: 0.8 }}>
           <CalendarIcon size={14} />
         </span>
       </div>
@@ -249,11 +249,11 @@ export default function CustomDatePicker({
           zIndex: 99,
           marginTop: "6px",
           left: 0,
-          backgroundColor: "#101014",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
+          backgroundColor: "var(--bg-popover)",
+          border: "1px solid var(--border-color)",
           padding: "12px",
           borderRadius: "12px",
-          boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.9)",
+          boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.3)",
           width: "250px",
           boxSizing: "border-box"
         }}>
@@ -264,9 +264,9 @@ export default function CustomDatePicker({
                 <button 
                   type="button"
                   onClick={handlePrevMonth}
-                  style={{ background: "transparent", border: 0, color: "#a1a1aa", cursor: "pointer", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "#ffffff"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "#a1a1aa"; }}
+                  style={{ background: "transparent", border: 0, color: "var(--text-secondary)", cursor: "pointer", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--bg-item-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
                 >
                   <ChevronLeft size={14} />
                 </button>
@@ -274,19 +274,19 @@ export default function CustomDatePicker({
                   <button
                     type="button"
                     onClick={() => setViewMode("months")}
-                    style={{ background: "transparent", border: 0, color: "#ffffff", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", cursor: "pointer", padding: "2px 6px", borderRadius: "4px" }}
-                    onMouseEnter={(e) => e.currentTarget.style.color = "#3b82f6"}
-                    onMouseLeave={(e) => e.currentTarget.style.color = "#ffffff"}
+                    style={{ background: "transparent", border: 0, color: "var(--text-primary)", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", cursor: "pointer", padding: "2px 6px", borderRadius: "4px" }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent-color)"}
+                    onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-primary)"}
                   >
                     {months[month]}
                   </button>
-                  <span style={{ color: "#52525b", fontSize: "11px" }}>•</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: "11px" }}>•</span>
                   <button
                     type="button"
                     onClick={() => setViewMode("years")}
-                    style={{ background: "transparent", border: 0, color: "#ffffff", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", cursor: "pointer", padding: "2px 6px", borderRadius: "4px" }}
-                    onMouseEnter={(e) => e.currentTarget.style.color = "#3b82f6"}
-                    onMouseLeave={(e) => e.currentTarget.style.color = "#ffffff"}
+                    style={{ background: "transparent", border: 0, color: "var(--text-primary)", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", cursor: "pointer", padding: "2px 6px", borderRadius: "4px" }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent-color)"}
+                    onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-primary)"}
                   >
                     {year}
                   </button>
@@ -294,9 +294,9 @@ export default function CustomDatePicker({
                 <button 
                   type="button"
                   onClick={handleNextMonth}
-                  style={{ background: "transparent", border: 0, color: "#a1a1aa", cursor: "pointer", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "#ffffff"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "#a1a1aa"; }}
+                  style={{ background: "transparent", border: 0, color: "var(--text-secondary)", cursor: "pointer", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--bg-item-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
                 >
                   <ChevronRight size={14} />
                 </button>
@@ -305,7 +305,7 @@ export default function CustomDatePicker({
               {/* Grid header (days names) */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px", textAlign: "center", marginBottom: "6px" }}>
                 {daysHeader.map((d) => (
-                  <span key={d} style={{ fontSize: "9.5px", fontWeight: "700", color: "#52525b" }}>
+                  <span key={d} style={{ fontSize: "9.5px", fontWeight: "700", color: "var(--text-muted)" }}>
                     {d}
                   </span>
                 ))}
@@ -345,21 +345,21 @@ export default function CustomDatePicker({
                         justifyContent: "center",
                         transition: "all 0.1s ease",
                         backgroundColor: isSelected 
-                          ? "#ffffff" 
+                          ? "var(--button-primary-bg)" 
                           : isToday 
                             ? "rgba(59, 130, 246, 0.15)" 
                             : "transparent",
                         color: isSelected 
-                          ? "#000000" 
+                          ? "var(--button-primary-text)" 
                           : disabled
-                            ? "#3f3f46"
+                            ? "var(--text-muted)"
                             : isToday 
-                              ? "#3b82f6" 
-                              : "#a1a1aa",
+                              ? "var(--accent-color)" 
+                              : "var(--text-secondary)",
                         opacity: disabled ? 0.3 : 1
                       }}
-                      onMouseEnter={(e) => { if (!isSelected && !disabled) { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#ffffff"; } }}
-                      onMouseLeave={(e) => { if (!isSelected && !disabled) { e.currentTarget.style.backgroundColor = isToday ? "rgba(59, 130, 246, 0.15)" : "transparent"; e.currentTarget.style.color = isToday ? "#3b82f6" : "#a1a1aa"; } }}
+                      onMouseEnter={(e) => { if (!isSelected && !disabled) { e.currentTarget.style.backgroundColor = "var(--bg-item-hover)"; e.currentTarget.style.color = "var(--text-primary)"; } }}
+                      onMouseLeave={(e) => { if (!isSelected && !disabled) { e.currentTarget.style.backgroundColor = isToday ? "rgba(59, 130, 246, 0.15)" : "transparent"; e.currentTarget.style.color = isToday ? "var(--accent-color)" : "var(--text-secondary)"; } }}
                     >
                       {day}
                     </button>
@@ -371,12 +371,12 @@ export default function CustomDatePicker({
 
           {viewMode === "months" && (
             <>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "6px" }}>
-                <span style={{ fontSize: "11px", fontWeight: "700", color: "#71717a", textTransform: "uppercase" }}>{lang === "vi" ? "Chọn Tháng" : "Select Month"}</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", borderBottom: "1px solid var(--border-color)", paddingBottom: "6px" }}>
+                <span style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase" }}>{lang === "vi" ? "Chọn Tháng" : "Select Month"}</span>
                 <button
                   type="button"
                   onClick={() => setViewMode("years")}
-                  style={{ background: "transparent", border: 0, color: "#3b82f6", fontWeight: "700", fontSize: "11px", cursor: "pointer" }}
+                  style={{ background: "transparent", border: 0, color: "var(--accent-color)", fontWeight: "700", fontSize: "11px", cursor: "pointer" }}
                 >
                   {year}
                 </button>
@@ -396,11 +396,11 @@ export default function CustomDatePicker({
                         fontSize: "11px",
                         fontWeight: "700",
                         cursor: "pointer",
-                        backgroundColor: isCurrentSelected ? "#ffffff" : "transparent",
-                        color: isCurrentSelected ? "#000000" : "#a1a1aa",
+                        backgroundColor: isCurrentSelected ? "var(--button-primary-bg)" : "transparent",
+                        color: isCurrentSelected ? "var(--button-primary-text)" : "var(--text-secondary)",
                         transition: "all 0.1s ease"
                       }}
-                      onMouseEnter={(e) => { if (!isCurrentSelected) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; }}
+                      onMouseEnter={(e) => { if (!isCurrentSelected) e.currentTarget.style.backgroundColor = "var(--bg-item-hover)"; }}
                       onMouseLeave={(e) => { if (!isCurrentSelected) e.currentTarget.style.backgroundColor = "transparent"; }}
                     >
                       {mName}
@@ -413,12 +413,12 @@ export default function CustomDatePicker({
 
           {viewMode === "years" && (
             <>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "6px" }}>
-                <span style={{ fontSize: "11px", fontWeight: "700", color: "#71717a", textTransform: "uppercase" }}>{lang === "vi" ? "Chọn Năm" : "Select Year"}</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", borderBottom: "1px solid var(--border-color)", paddingBottom: "6px" }}>
+                <span style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase" }}>{lang === "vi" ? "Chọn Năm" : "Select Year"}</span>
                 <button
                   type="button"
                   onClick={() => setViewMode(onlyMonth ? "months" : "days")}
-                  style={{ background: "transparent", border: 0, color: "#3b82f6", fontWeight: "700", fontSize: "11px", cursor: "pointer" }}
+                  style={{ background: "transparent", border: 0, color: "var(--accent-color)", fontWeight: "700", fontSize: "11px", cursor: "pointer" }}
                 >
                   {lang === "vi" ? "Quay lại" : "Back"}
                 </button>
@@ -438,11 +438,11 @@ export default function CustomDatePicker({
                         fontSize: "11px",
                         fontWeight: "700",
                         cursor: "pointer",
-                        backgroundColor: isCurrentSelected ? "#ffffff" : "transparent",
-                        color: isCurrentSelected ? "#000000" : "#a1a1aa",
+                        backgroundColor: isCurrentSelected ? "var(--button-primary-bg)" : "transparent",
+                        color: isCurrentSelected ? "var(--button-primary-text)" : "var(--text-secondary)",
                         transition: "all 0.1s ease"
                       }}
-                      onMouseEnter={(e) => { if (!isCurrentSelected) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; }}
+                      onMouseEnter={(e) => { if (!isCurrentSelected) e.currentTarget.style.backgroundColor = "var(--bg-item-hover)"; }}
                       onMouseLeave={(e) => { if (!isCurrentSelected) e.currentTarget.style.backgroundColor = "transparent"; }}
                     >
                       {yNum}

@@ -116,14 +116,14 @@ export default function AssetGrid({
         .groupLabel {
           font-size: 12px;
           font-weight: 700;
-          color: #71717a;
+          color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
         .chip {
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          background: rgba(255, 255, 255, 0.02);
-          color: #a1a1aa;
+          border: 1px solid var(--border-color);
+          background: var(--bg-input);
+          color: var(--text-secondary);
           border-radius: 99px;
           padding: 6px 14px;
           cursor: pointer;
@@ -133,19 +133,19 @@ export default function AssetGrid({
           transition: all 0.2s ease;
         }
         .chip:hover {
-          background: rgba(255, 255, 255, 0.06);
-          color: #e4e4e7;
-          border-color: rgba(255, 255, 255, 0.1);
+          background: var(--bg-item-hover);
+          color: var(--text-primary);
+          border-color: var(--border-input-focus);
         }
         .chip.active {
-          background: #ffffff;
-          border-color: #ffffff;
-          color: #09090b;
-          box-shadow: 0 4px 10px rgba(255, 255, 255, 0.1);
+          background: var(--button-primary-bg);
+          border-color: var(--button-primary-bg);
+          color: var(--button-primary-text);
+          box-shadow: 0 4px 10px var(--button-primary-shadow);
         }
         .hint {
           font-size: 13px;
-          color: #71717a;
+          color: var(--text-muted);
           margin-bottom: 16px;
           font-style: italic;
         }
@@ -157,9 +157,9 @@ export default function AssetGrid({
           display: flex;
           align-items: center;
           gap: 10px;
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          background: rgba(255, 255, 255, 0.02);
-          color: #f4f4f5;
+          border: 1px solid var(--border-color);
+          background: var(--bg-input);
+          color: var(--text-primary);
           border-radius: 14px;
           padding: 10px 14px;
           margin-bottom: 14px;
@@ -170,26 +170,26 @@ export default function AssetGrid({
           transition: all 0.2s ease;
         }
         .groupHeader:hover {
-          background: rgba(255, 255, 255, 0.05);
-          border-color: rgba(255, 255, 255, 0.12);
+          background: var(--bg-item-hover);
+          border-color: var(--border-input-focus);
         }
         .groupHeaderChevron {
           display: inline-block;
           font-size: 10px;
           transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           transform: rotate(0deg);
-          color: #71717a;
+          color: var(--text-muted);
         }
         .groupHeaderChevron.open {
           transform: rotate(90deg);
-          color: #ffffff;
+          color: var(--text-primary);
         }
         .groupCount {
           margin-left: auto;
-          color: #71717a;
+          color: var(--text-muted);
           font-size: 11px;
           font-weight: 600;
-          background: rgba(255, 255, 255, 0.05);
+          background: var(--bg-item-hover);
           padding: 2px 8px;
           border-radius: 6px;
         }
@@ -217,26 +217,27 @@ export default function AssetGrid({
           gap: 16px;
         }
         .tile {
-          background: #111113;
-          border: 1px solid rgba(255, 255, 255, 0.04);
+          background: var(--bg-tile);
+          border: 1px solid var(--border-tile);
           border-radius: 16px;
           overflow: hidden;
           cursor: pointer;
           position: relative;
+          box-shadow: var(--card-shadow);
           transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           animation: cardEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         .tile:hover {
-          border-color: rgba(255, 255, 255, 0.15);
+          border-color: var(--border-tile-hover);
           transform: translateY(-4px);
-          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+          box-shadow: var(--card-shadow-hover);
         }
         .tile:hover .thumb {
           transform: scale(1.04);
         }
         .tile.picked {
-          border-color: #ffffff;
-          box-shadow: 0 0 0 1px #ffffff, 0 8px 24px rgba(0, 0, 0, 0.3);
+          border-color: var(--button-primary-bg);
+          box-shadow: 0 0 0 1px var(--button-primary-bg), 0 8px 24px rgba(0, 0, 0, 0.15);
         }
         .thumb {
           width: 100%;
@@ -250,14 +251,14 @@ export default function AssetGrid({
           padding: 10px 12px;
           font-size: 12px;
           font-weight: 500;
-          color: #a1a1aa;
+          color: var(--text-secondary);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          border-top: 1px solid rgba(255, 255, 255, 0.02);
+          border-top: 1px solid var(--caption-border);
         }
         .tile:hover .caption {
-          color: #f4f4f5;
+          color: var(--text-primary);
         }
         .badge {
           position: absolute;
@@ -266,13 +267,13 @@ export default function AssetGrid({
           width: 22px;
           height: 22px;
           border-radius: 99px;
-          background: #ffffff;
-          color: #09090b;
+          background: var(--button-primary-bg);
+          color: var(--button-primary-text);
           display: grid;
           place-items: center;
           font-weight: 800;
           font-size: 11px;
-          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
           z-index: 2;
         }
         .tileProcessing {
@@ -284,19 +285,19 @@ export default function AssetGrid({
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          background: rgba(255, 255, 255, 0.02);
+          background: var(--bg-input);
           gap: 12px;
         }
         .pulseLoader {
           width: 24px;
           height: 24px;
           border-radius: 50%;
-          background: #3b82f6;
+          background: var(--accent-color);
           animation: pulse 1.6s ease-in-out infinite;
         }
         .processingText {
           font-size: 11px;
-          color: #71717a;
+          color: var(--text-muted);
           font-weight: 600;
         }
         @keyframes pulse {

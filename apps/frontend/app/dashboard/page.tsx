@@ -845,11 +845,12 @@ export default function DashboardPage(): React.JSX.Element {
           display: grid;
           grid-template-columns: 260px 1fr;
           min-height: 100vh;
-          background: #09090b;
-          color: #f4f4f5;
+          background: var(--bg-page);
+          color: var(--text-primary);
+          transition: background 0.25s ease, color 0.25s ease;
         }
         .tableRowHover:hover {
-          background: rgba(255, 255, 255, 0.015);
+          background: var(--bg-item-hover);
         }
         .main {
           padding: 24px 32px 40px;

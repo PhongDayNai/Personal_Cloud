@@ -76,21 +76,21 @@ export default function DocView({
           gap: 10px;
           align-items: center;
           font-size: 13px;
-          color: #a1a1aa;
+          color: var(--text-secondary);
         }
         .docFilters select {
-          background: rgba(255, 255, 255, 0.03);
-          color: #ffffff;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: var(--bg-input);
+          color: var(--text-primary);
+          border: 1px solid var(--border-input);
           border-radius: 8px;
           padding: 6px 12px;
           font-family: inherit;
           outline: none;
         }
         .chip {
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          background: rgba(255, 255, 255, 0.02);
-          color: #a1a1aa;
+          border: 1px solid var(--border-color);
+          background: var(--bg-input);
+          color: var(--text-secondary);
           border-radius: 99px;
           padding: 6px 14px;
           cursor: pointer;
@@ -100,14 +100,14 @@ export default function DocView({
           transition: all 0.2s ease;
         }
         .chip.active {
-          background: #ffffff;
-          border-color: #ffffff;
-          color: #09090b;
-          box-shadow: 0 4px 10px rgba(255, 255, 255, 0.1);
+          background: var(--button-primary-bg);
+          border-color: var(--button-primary-bg);
+          color: var(--button-primary-text);
+          box-shadow: 0 4px 10px var(--button-primary-shadow);
         }
         .hint {
           font-size: 13px;
-          color: #71717a;
+          color: var(--text-muted);
           margin-bottom: 16px;
           font-style: italic;
         }
@@ -115,7 +115,7 @@ export default function DocView({
           font-size: 15px;
           font-weight: 700;
           margin-bottom: 12px;
-          color: #e4e4e7;
+          color: var(--text-primary);
           letter-spacing: -0.2px;
         }
         .docGroup {
@@ -127,27 +127,28 @@ export default function DocView({
           gap: 12px;
         }
         .docCard {
-          background: #111113;
-          border: 1px solid rgba(255, 255, 255, 0.04);
+          background: var(--bg-tile);
+          border: 1px solid var(--border-tile);
           border-radius: 14px;
           padding: 14px;
           cursor: pointer;
           position: relative;
+          box-shadow: var(--card-shadow);
           transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
           animation: cardEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         .docCard:hover {
           transform: translateY(-2px);
-          border-color: rgba(255, 255, 255, 0.12);
-          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+          border-color: var(--border-tile-hover);
+          box-shadow: var(--card-shadow-hover);
         }
         .docCard.picked {
-          border-color: #ffffff;
-          box-shadow: 0 0 0 1px #ffffff;
+          border-color: var(--button-primary-bg);
+          box-shadow: 0 0 0 1px var(--button-primary-bg);
         }
         .docName {
           font-weight: 600;
-          color: #f4f4f5;
+          color: var(--text-primary);
           margin-bottom: 6px;
           white-space: nowrap;
           overflow: hidden;
@@ -156,7 +157,7 @@ export default function DocView({
         }
         .docMeta {
           font-size: 11px;
-          color: #71717a;
+          color: var(--text-muted);
           font-weight: 500;
         }
         .badge {
@@ -166,13 +167,13 @@ export default function DocView({
           width: 22px;
           height: 22px;
           border-radius: 99px;
-          background: #ffffff;
-          color: #09090b;
+          background: var(--button-primary-bg);
+          color: var(--button-primary-text);
           display: grid;
           place-items: center;
           font-weight: 800;
           font-size: 11px;
-          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
           z-index: 2;
         }
         @keyframes cardEnter {
