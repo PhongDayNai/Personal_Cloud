@@ -16,7 +16,7 @@ export default function Home(): React.JSX.Element {
       try {
         const r = await fetch(`${getApiOrigin()}/api/auth/me`, { credentials: 'include' });
         if (!mounted) return;
-        window.location.href = r.ok ? '/dashboard' : '/login';
+        window.location.href = r.ok ? '/cloud' : '/login';
       } catch {
         if (!mounted) return;
         window.location.href = '/login';

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Asset, User, DocProject, Tag } from '../types';
 import { fmtBytes } from '../lib/utils';
 
@@ -165,6 +166,8 @@ export default function Sidebar({
   setActiveWorkspace,
   spaces
 }: SidebarProps): React.JSX.Element {
+  const router = useRouter();
+
   return (
     <aside className="sidebar" onClick={() => { setShowProfileMenu(false); }}>
       <div className="sidebarMenu">
@@ -172,19 +175,19 @@ export default function Sidebar({
 
         {/* Main Navigation */}
         <div className="mainNav">
-          <button className={`navItem ${tab === 'all' ? 'active' : ''}`} onClick={() => { setActiveWorkspace({ type: 'personal' }); setTab('all'); setSelectionMode(false); setSelectedIds([]); }}>
+          <button className={`navItem ${tab === 'all' ? 'active' : ''}`} onClick={() => { router.push('/cloud/all'); }}>
             <span className="ico"><Icons.AllFiles /></span><span>{t('sidebar.allFiles') || 'Tất cả tệp tin'}</span>
           </button>
 
-          <button className={`navItem ${tab === 'photos' ? 'active' : ''}`} onClick={() => { setActiveWorkspace({ type: 'personal' }); setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); setSelectionMode(false); setSelectedIds([]); }}>
+          <button className={`navItem ${tab === 'photos' ? 'active' : ''}`} onClick={() => { setCollectionView('all'); setSelectedAlbum('all'); router.push('/cloud/photos'); }}>
             <span className="ico"><Icons.Photos /></span><span>{t('sidebar.allPhotosVideos')}</span><span className="count">{basePhotoAssets.filter((x) => !x.isDeleted).length}</span>
           </button>
 
-          <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setActiveWorkspace({ type: 'personal' }); setTab('docs'); setDocCollectionView('all'); setDocCategoryFilter('all'); setSelectedDocProject('all'); setSelectionMode(false); setSelectedIds([]); }}>
+          <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setDocCollectionView('all'); setDocCategoryFilter('all'); setSelectedDocProject('all'); router.push('/cloud/docs'); }}>
             <span className="ico"><Icons.Documents /></span><span>{t('sidebar.documents')}</span><span className="count">{docs.length}</span>
           </button>
 
-          <button className={`navItem ${tab === 'spaces' || tab === 'space' ? 'active' : ''}`} onClick={() => { setActiveWorkspace({ type: 'personal' }); setTab('spaces'); setSelectionMode(false); setSelectedIds([]); }}>
+          <button className={`navItem ${tab === 'spaces' || tab === 'space' ? 'active' : ''}`} onClick={() => { router.push('/cloud/spaces'); }}>
             <span className="ico"><Icons.Spaces /></span><span>{t('sidebar.spaces') || 'Không gian con'}</span><span className="count">{spaces.length}</span>
           </button>
         </div>
@@ -196,12 +199,12 @@ export default function Sidebar({
           {tab === 'photos' && (
             <div className="sectionBody sectionIn">
               <div className="subList">
-                <button className={`subItem ${selectedAlbum === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); }}>
+                <button className={`subItem ${selectedAlbum === 'all' ? 'active' : ''}`} onClick={() => { setCollectionView('all'); setSelectedAlbum('all'); router.push('/cloud/photos'); }}>
                   <span className="ico" style={{ marginRight: '6px', display: 'inline-flex', alignItems: 'center' }}><Icons.Folder /></span>
                   {t('sidebar.all')}
                 </button>
                 {availableAlbums.map(([name, count]) => (
-                  <button key={name} className={`subItem ${selectedAlbum === name ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum(name); }}>
+                  <button key={name} className={`subItem ${selectedAlbum === name ? 'active' : ''}`} onClick={() => { setCollectionView('all'); setSelectedAlbum(name); router.push('/cloud/photos'); }}>
                     <span className="ico" style={{ marginRight: '6px', display: 'inline-flex', alignItems: 'center' }}><Icons.Folder /></span>
                     {name} ({count})
                   </button>
@@ -235,10 +238,7 @@ export default function Sidebar({
                     key={sp.id} 
                     className={`subItem ${tab === 'space' && activeWorkspace.type === 'space' && activeWorkspace.id === sp.id ? 'active' : ''}`} 
                     onClick={() => { 
-                      setActiveWorkspace({ type: 'space', id: sp.id, name: sp.name, spaceType: sp.type }); 
-                      setTab('space'); 
-                      setSelectionMode(false); 
-                      setSelectedIds([]); 
+                      router.push(`/cloud/space/${sp.id}`);
                     }}
                   >
                     <span className="ico" style={{ marginRight: '6px', display: 'inline-flex', alignItems: 'center' }}>

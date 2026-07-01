@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function DashboardRedirect(): null {
+export default function CloudRedirect(): null {
   const router = useRouter();
 
   useEffect(() => {
