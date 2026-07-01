@@ -1,12 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Asset, User, DocProject, Tag } from '../types';
 import { fmtBytes } from '../lib/utils';
 
 interface SidebarProps {
-  tab: 'photos' | 'docs';
-  setTab: (tab: 'photos' | 'docs') => void;
+  tab: 'photos' | 'docs' | 'all' | 'space' | 'spaces';
+  setTab: (tab: 'photos' | 'docs' | 'all' | 'space' | 'spaces') => void;
   collectionView: 'all' | 'recent' | 'images' | 'videos' | 'trash';
   setCollectionView: (view: 'all' | 'recent' | 'images' | 'videos' | 'trash') => void;
   selectedAlbum: string;
@@ -16,8 +16,8 @@ interface SidebarProps {
   basePhotoAssets: Asset[];
   docs: Asset[];
   trashedDocs: Asset[];
-  docCollectionView: 'all' | 'trash';
-  setDocCollectionView: (view: 'all' | 'trash') => void;
+  docCollectionView: 'all' | 'recent' | 'trash';
+  setDocCollectionView: (view: 'all' | 'recent' | 'trash') => void;
   docCategoryFilter: string;
   setDocCategoryFilter: (filter: string) => void;
   setSelectedDocProject: (project: string) => void;
@@ -46,9 +46,64 @@ interface SidebarProps {
   setShowSettingsModal: (show: boolean) => void;
   handleLogout: () => void;
   t: (key: string, replacements?: Record<string, string | number>) => string;
+  activeWorkspace: { type: 'personal' } | { type: 'space'; id: string; name: string; spaceType: string };
+  setActiveWorkspace: (ws: any) => void;
+  spaces: any[];
 }
 
 const Icons = {
+  AllFiles: (): React.JSX.Element => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  ),
+  Photos: (): React.JSX.Element => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </svg>
+  ),
+  Documents: (): React.JSX.Element => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  ),
+  Spaces: (): React.JSX.Element => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+    </svg>
+  ),
+  Folder: (): React.JSX.Element => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  Journal: (): React.JSX.Element => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+  ),
+  Collection: (): React.JSX.Element => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+      <line x1="12" y1="22.08" x2="12" y2="12" />
+    </svg>
+  ),
+  Project: (): React.JSX.Element => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+      <line x1="2" y1="10" x2="22" y2="10" />
+      <path d="M6 21h12" />
+      <path d="M12 17v4" />
+    </svg>
+  ),
   Settings: (): React.JSX.Element => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3" />
@@ -105,117 +160,99 @@ export default function Sidebar({
   user,
   setShowSettingsModal,
   handleLogout,
-  t
+  t,
+  activeWorkspace,
+  setActiveWorkspace,
+  spaces
 }: SidebarProps): React.JSX.Element {
   return (
-    <aside className="sidebar" onClick={() => setShowProfileMenu(false)}>
+    <aside className="sidebar" onClick={() => { setShowProfileMenu(false); }}>
       <div className="sidebarMenu">
         <div className="logo">AetherCloud</div>
 
-        <button className={`navItem ${tab === 'photos' && collectionView === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); setSelectionMode(false); setSelectedIds([]); }}>
-          <span className="ico">🖼</span><span>{t('sidebar.allPhotosVideos')}</span><span className="count">{basePhotoAssets.filter((x) => !x.isDeleted).length}</span>
-        </button>
+        {/* Main Navigation */}
+        <div className="mainNav">
+          <button className={`navItem ${tab === 'all' ? 'active' : ''}`} onClick={() => { setActiveWorkspace({ type: 'personal' }); setTab('all'); setSelectionMode(false); setSelectedIds([]); }}>
+            <span className="ico"><Icons.AllFiles /></span><span>{t('sidebar.allFiles') || 'Tất cả tệp tin'}</span>
+          </button>
 
-        <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setTab('docs'); setDocCollectionView('all'); setDocCategoryFilter('all'); setSelectedDocProject('all'); setSelectionMode(false); setSelectedIds([]); }}>
-          <span className="ico">📁</span><span>{t('sidebar.documents')}</span><span className="count">{docs.length}</span>
-        </button>
+          <button className={`navItem ${tab === 'photos' ? 'active' : ''}`} onClick={() => { setActiveWorkspace({ type: 'personal' }); setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); setSelectionMode(false); setSelectedIds([]); }}>
+            <span className="ico"><Icons.Photos /></span><span>{t('sidebar.allPhotosVideos')}</span><span className="count">{basePhotoAssets.filter((x) => !x.isDeleted).length}</span>
+          </button>
 
-        <div className="sectionWrap">
-          <div className="sectionTitle">{tab === 'photos' ? t('sidebar.collectionsTitle') : t('sidebar.docsAreaTitle')}</div>
+          <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setActiveWorkspace({ type: 'personal' }); setTab('docs'); setDocCollectionView('all'); setDocCategoryFilter('all'); setSelectedDocProject('all'); setSelectionMode(false); setSelectedIds([]); }}>
+            <span className="ico"><Icons.Documents /></span><span>{t('sidebar.documents')}</span><span className="count">{docs.length}</span>
+          </button>
 
-          {tab === 'photos' ? (
+          <button className={`navItem ${tab === 'spaces' || tab === 'space' ? 'active' : ''}`} onClick={() => { setActiveWorkspace({ type: 'personal' }); setTab('spaces'); setSelectionMode(false); setSelectedIds([]); }}>
+            <span className="ico"><Icons.Spaces /></span><span>{t('sidebar.spaces') || 'Không gian con'}</span><span className="count">{spaces.length}</span>
+          </button>
+        </div>
+
+        <div className="navDivider" style={{ height: '1px', background: 'var(--border-color)', margin: '12px 0', opacity: 0.5 }} />
+
+        {/* Sub Navigation (Dynamic Area) */}
+        <div className="subNav" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {tab === 'photos' && (
             <div className="sectionBody sectionIn">
-              <button
-                className={`navItem ${albumsExpanded ? 'active' : ''}`}
-                onClick={() => setAlbumsExpanded((v) => !v)}
-              >
-                <span className="ico">🗂</span>
-                <span>{t('sidebar.albumsTitle')}</span>
-                <span className="chev">{albumsExpanded ? '▾' : '▸'}</span>
-              </button>
-
-              {albumsExpanded && (
-                <div className="subList">
-                  <button className={`subItem ${selectedAlbum === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); }}>
-                    {t('sidebar.all')}
-                  </button>
-                  {availableAlbums.length === 0 && <div className="subHint">{t('sidebar.noManualAlbums')}</div>}
-                  {availableAlbums.map(([name, count]) => (
-                    <button key={name} className={`subItem ${selectedAlbum === name ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum(name); }}>
-                      {name} ({count})
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <button className={`navItem ${tab === 'photos' && collectionView === 'recent' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('recent'); setSelectedAlbum('all'); }}>
-                <span className="ico">🕒</span><span>{t('sidebar.recentlyAdded')}</span>
-              </button>
-              <button className={`navItem ${tab === 'photos' && collectionView === 'images' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('images'); setSelectedAlbum('all'); }}>
-                <span className="ico">🖼</span><span>{t('sidebar.imagesOnly')}</span>
-              </button>
-              <button className={`navItem ${tab === 'photos' && collectionView === 'videos' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('videos'); setSelectedAlbum('all'); }}>
-                <span className="ico">🎬</span><span>{t('sidebar.videosOnly')}</span>
-              </button>
-              <button className={`navItem ${tab === 'photos' && collectionView === 'trash' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('trash'); setSelectedAlbum('all'); }}>
-                <span className="ico">🗑</span><span>{t('sidebar.trashBin')}</span><span className="count">{basePhotoAssets.filter((x) => x.isDeleted).length}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="sectionBody sectionIn">
-              <button className={`navItem ${tab === 'docs' && docCollectionView === 'all' ? 'active' : ''}`} onClick={() => { setTab('docs'); setDocCollectionView('all'); setSelectionMode(false); setSelectedIds([]); }}>
-                <span className="ico">📄</span><span>{t('sidebar.docsActive')}</span><span className="count">{docs.length}</span>
-              </button>
-              <button className={`navItem ${tab === 'docs' && docCollectionView === 'trash' ? 'active' : ''}`} onClick={() => { setTab('docs'); setDocCollectionView('trash'); setSelectionMode(false); setSelectedIds([]); }}>
-                <span className="ico">🗑</span><span>{t('sidebar.docsTrash')}</span><span className="count">{trashedDocs.length}</span>
-              </button>
-
-              <button className={`navItem ${docProjectsExpanded ? 'active' : ''}`} onClick={() => setDocProjectsExpanded((v) => !v)}>
-                <span className="ico">📚</span><span>{t('sidebar.docProjectsTitle')}</span><span className="chev">{docProjectsExpanded ? '▾' : '▸'}</span>
-              </button>
-              {docProjectsExpanded && (
-                <div className="subList">
-                  <button className={`subItem ${selectedDocProject === 'all' ? 'active' : ''}`} onClick={() => setSelectedDocProject('all')}>{t('sidebar.allProjects')}</button>
-                  {docProjects.length === 0 && <div className="subHint">{t('sidebar.noDocProjects')}</div>}
-                  {docProjects.map((p) => (
-                    <button key={p.name} className={`subItem ${selectedDocProject === p.name ? 'active' : ''}`} onClick={() => setSelectedDocProject(p.name)}>
-                      {p.name} ({p.count})
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <button className={`navItem ${docCategoryFilter === 'all' ? 'active' : ''}`} onClick={() => setDocCategoryFilter('all')}>
-                <span className="ico">🧩</span><span>{t('sidebar.allDocTypes')}</span><span className="count">{docsBase.length}</span>
-              </button>
-
-              {['pdf', 'excel', 'word', 'markdown', 'text'].map((k) => (
-                <button key={k} className={`navItem ${docCategoryFilter === k ? 'active' : ''}`} onClick={() => setDocCategoryFilter(k)}>
-                  <span className="ico">{k === 'pdf' ? '📕' : k === 'excel' ? '📊' : k === 'word' ? '📝' : k === 'markdown' ? '🔤' : '📄'}</span>
-                  <span>{t('categories.' + k)}</span>
-                  <span className="count">{docCategoryCounts.get(k) || 0}</span>
+              <div className="subList">
+                <button className={`subItem ${selectedAlbum === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); }}>
+                  <span className="ico" style={{ marginRight: '6px', display: 'inline-flex', alignItems: 'center' }}><Icons.Folder /></span>
+                  {t('sidebar.all')}
                 </button>
-              ))}
-
-              <button className={`navItem ${docTypeFilter === 'all' && docKindsExpanded ? 'active' : ''}`} onClick={() => setDocKindsExpanded((v) => !v)}>
-                <span className="ico">🗂</span><span>{t('sidebar.showAllDocTypes')}</span><span className="chev">{docKindsExpanded ? '▾' : '▸'}</span>
-              </button>
-
-              {docKindsExpanded && (
-                <div className="subList">
-                  {docTypes.map((t) => (
-                    <button key={t} className={`subItem ${docTypeFilter === t ? 'active' : ''}`} onClick={() => setDocTypeFilter(t)}>
-                      {t}
-                    </button>
-                  ))}
-                  <button className={`subItem ${docTypeFilter === 'all' ? 'active' : ''}`} onClick={() => setDocTypeFilter('all')}>
-                    {t('sidebar.clearSpecificFilter')}
+                {availableAlbums.map(([name, count]) => (
+                  <button key={name} className={`subItem ${selectedAlbum === name ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum(name); }}>
+                    <span className="ico" style={{ marginRight: '6px', display: 'inline-flex', alignItems: 'center' }}><Icons.Folder /></span>
+                    {name} ({count})
                   </button>
-                </div>
-              )}
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab === 'docs' && (
+            <div className="sectionBody sectionIn">
+              <div className="subList">
+                <button className={`subItem ${selectedDocProject === 'all' ? 'active' : ''}`} onClick={() => setSelectedDocProject('all')}>
+                  <span className="ico" style={{ marginRight: '6px', display: 'inline-flex', alignItems: 'center' }}><Icons.Folder /></span>
+                  {t('sidebar.allProjects') || 'Tất cả tập tài liệu'}
+                </button>
+                {docProjects.map((p) => (
+                  <button key={p.name} className={`subItem ${selectedDocProject === p.name ? 'active' : ''}`} onClick={() => setSelectedDocProject(p.name)}>
+                    <span className="ico" style={{ marginRight: '6px', display: 'inline-flex', alignItems: 'center' }}><Icons.Folder /></span>
+                    {p.name} ({p.count})
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(tab === 'spaces' || tab === 'space') && (
+            <div className="sectionBody sectionIn">
+              <div className="subList">
+                {spaces.map((sp) => (
+                  <button 
+                    key={sp.id} 
+                    className={`subItem ${tab === 'space' && activeWorkspace.type === 'space' && activeWorkspace.id === sp.id ? 'active' : ''}`} 
+                    onClick={() => { 
+                      setActiveWorkspace({ type: 'space', id: sp.id, name: sp.name, spaceType: sp.type }); 
+                      setTab('space'); 
+                      setSelectionMode(false); 
+                      setSelectedIds([]); 
+                    }}
+                  >
+                    <span className="ico" style={{ marginRight: '6px', display: 'inline-flex', alignItems: 'center' }}>
+                      {sp.type === 'journal' ? <Icons.Journal /> : sp.type === 'collection' ? <Icons.Collection /> : <Icons.Project />}
+                    </span>
+                    <span>{sp.name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
+
+        <div className="navDivider" style={{ height: '1px', background: 'var(--border-color)', margin: '12px 0', opacity: 0.5 }} />
 
         <div className="tagsSection">
           <div className="tagsHeader">{t('sidebar.tagsTitle')}</div>
@@ -721,6 +758,98 @@ export default function Sidebar({
         .tagChipClear:hover {
           background: rgba(239, 68, 68, 0.15);
           color: #ffffff;
+        }
+
+        .workspaceSwitcher {
+          margin-bottom: 20px;
+          position: relative;
+          width: 100%;
+        }
+        .wsBtn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: var(--bg-input);
+          border: 1px solid var(--border-color);
+          border-radius: 12px;
+          padding: 10px 14px;
+          color: var(--text-primary);
+          font-family: inherit;
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          text-align: left;
+        }
+        .wsBtn:hover {
+          background: var(--bg-item-hover);
+          border-color: var(--border-input-focus);
+        }
+        .wsIcon {
+          font-size: 16px;
+        }
+        .wsName {
+          flex: 1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .wsChevron {
+          font-size: 12px;
+          opacity: 0.6;
+        }
+        .wsDropdown {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          width: 100%;
+          background: var(--bg-popover);
+          border: 1px solid var(--border-color);
+          border-radius: 12px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+          z-index: 110;
+          padding: 8px;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .wsDropdownTitle {
+          font-size: 10px;
+          font-weight: 700;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          padding: 6px 10px;
+          letter-spacing: 0.5px;
+        }
+        .wsDropdownItem {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: transparent;
+          border: 0;
+          padding: 8px 10px;
+          border-radius: 8px;
+          color: var(--text-secondary);
+          cursor: pointer;
+          font-family: inherit;
+          font-size: 13.5px;
+          font-weight: 500;
+          text-align: left;
+          transition: all 0.15s ease;
+        }
+        .wsDropdownItem:hover {
+          background: var(--bg-item-hover);
+          color: var(--text-primary);
+        }
+        .wsDropdownItem.active {
+          background: var(--bg-item-active);
+          color: var(--text-primary);
+        }
+        .wsDropdownItem .icon {
+          font-size: 15px;
         }
       `}</style>
     </aside>
