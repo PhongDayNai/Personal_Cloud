@@ -36,6 +36,7 @@ export default function DashboardPage(): React.JSX.Element {
     activeMediaFit,
     user,
     selectedDocProject,
+    setShowCreateSpaceModal,
     
     // operations
     handleCreatePost,
@@ -367,7 +368,7 @@ export default function DashboardPage(): React.JSX.Element {
           </div>
           
           <div className="spacesGrid">
-            <div className="spaceCard createCard" onClick={() => useCloud().setShowCreateSpaceModal(true)}>
+            <div className="spaceCard createCard" onClick={() => setShowCreateSpaceModal(true)}>
               <div className="createIcon">＋</div>
               <div className="createLabel">{t('spaces.create') || 'Tạo không gian con'}</div>
               <div className="createSub">Nhật ký, Bộ sưu tập hoặc Dự án</div>
