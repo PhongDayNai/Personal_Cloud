@@ -62,8 +62,39 @@ export default function DashboardPage(): React.JSX.Element {
     availableAlbums,
     albumFilteredPhotos,
     photoGroups,
-    active
+    active,
+    
+    // extra properties for dashboard
+    usage,
+    assets
   } = useCloud();
+
+  // Compute dashboard metrics from active assets
+  const dashboardStats = React.useMemo(() => {
+    const activeAssets = assets.filter(a => !a.isDeleted);
+    const photosVideos = activeAssets.filter(a => a.type === 'image' || a.type === 'video');
+    const documents = activeAssets.filter(a => a.type !== 'image' && a.type !== 'video');
+    const trashed = assets.filter(a => a.isDeleted);
+
+    const photosVideosCount = photosVideos.length;
+    const photosVideosSize = photosVideos.reduce((acc, a) => acc + (a.size || 0), 0);
+
+    const docsCount = documents.length;
+    const docsSize = documents.reduce((acc, a) => acc + (a.size || 0), 0);
+
+    const trashCount = trashed.length;
+    const trashSize = usage?.breakdown?.trashBytes || trashed.reduce((acc, a) => acc + (a.size || 0), 0);
+
+    return {
+      photosVideosCount,
+      photosVideosSize,
+      docsCount,
+      docsSize,
+      spacesCount: spaces.length,
+      trashCount,
+      trashSize
+    };
+  }, [assets, spaces, usage]);
 
   function toggleGroup(key: string) {
     setExpandedGroups((prev) => ({ ...prev, [key]: !(prev[key] ?? true) }));
@@ -284,6 +315,120 @@ export default function DashboardPage(): React.JSX.Element {
             <h1>{t('sidebar.allFiles') || 'Tất cả tệp tin'}</h1>
             <p>{t('allFiles.subtitle') || 'Xem và quản lý toàn bộ tệp tin, hình ảnh, tài liệu của bạn tại một nơi.'}</p>
           </div>
+
+          {/* Dashboard Section */}
+          <div className="dashboardSection">
+            {usage?.processingCount > 0 && (
+              <div className="processingBanner">
+                <span className="spinningIcon"><Icons.Flash size={16} /></span>
+                <span>
+                  {t('dashboard.processingFiles', { count: usage.processingCount }) || 
+                    `Hệ thống đang tối ưu hóa ${usage.processingCount} tệp tin ngầm...`}
+                </span>
+              </div>
+            )}
+
+            <div className="dashboardGrid">
+              {/* Storage Usage Card */}
+              <div className="dashboardCard storageCard">
+                <div className="cardHeader">
+                  <h3>{t('dashboard.storageUsage') || 'Dung lượng lưu trữ'}</h3>
+                  <span className="percentText">{usage?.usedPercent !== undefined ? `${usage.usedPercent}%` : '0%'}</span>
+                </div>
+                <div className="progressBarContainer">
+                  <div 
+                    className="progressBar" 
+                    style={{ width: `${usage?.usedPercent !== undefined ? Math.min(100, Math.max(0, usage.usedPercent)) : 0}%` }}
+                  />
+                </div>
+                <div className="storageDetails">
+                  <span className="usedText">
+                    {t('dashboard.usedOfTotal', { 
+                      used: fmtBytes(usage?.usedBytes || 0), 
+                      total: fmtBytes(usage?.totalBytes || 0) 
+                    }) || `${fmtBytes(usage?.usedBytes || 0)} / ${fmtBytes(usage?.totalBytes || 0)} đã dùng`}
+                  </span>
+                  <span className="freeText">
+                    {t('dashboard.freeSpace', { free: fmtBytes(usage?.freeBytes || 0) }) || 
+                      `Còn trống ${fmtBytes(usage?.freeBytes || 0)}`}
+                  </span>
+                </div>
+                
+                {/* Storage Breakdown */}
+                {usage?.breakdown && (
+                  <div className="storageBreakdown">
+                    <div className="breakdownItem">
+                      <span className="dot originalDot"></span>
+                      <span className="label">{t('dashboard.originals') || 'Tệp gốc'}:</span>
+                      <span className="value">{fmtBytes(usage.breakdown.originalsBytes || 0)}</span>
+                    </div>
+                    <div className="breakdownItem">
+                      <span className="dot derivedDot"></span>
+                      <span className="label">{t('dashboard.derived') || 'Tệp tối ưu'}:</span>
+                      <span className="value">{fmtBytes(usage.breakdown.derivedBytes || 0)}</span>
+                    </div>
+                    <div className="breakdownItem">
+                      <span className="dot trashDot"></span>
+                      <span className="label">{t('dashboard.trash') || 'Thùng rác'}:</span>
+                      <span className="value">{fmtBytes(usage.breakdown.trashBytes || 0)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Actions & Quick Stats Grid */}
+              <div className="statsGrid">
+                {/* Photos & Videos Card */}
+                <div className="statCard clickableCard" onClick={() => setTab('photos')}>
+                  <div className="statIcon iconPhotos">
+                    <Icons.Photos size={20} />
+                  </div>
+                  <div className="statInfo">
+                    <h4>{t('sidebar.allPhotosVideos') || 'Ảnh & Video'}</h4>
+                    <p className="statCount">{t('dashboard.photosVideosCount', { count: dashboardStats.photosVideosCount }) || `${dashboardStats.photosVideosCount} tệp`}</p>
+                    <p className="statSize">{fmtBytes(dashboardStats.photosVideosSize)}</p>
+                  </div>
+                </div>
+
+                {/* Documents Card */}
+                <div className="statCard clickableCard" onClick={() => setTab('docs')}>
+                  <div className="statIcon iconDocs">
+                    <Icons.Documents size={20} />
+                  </div>
+                  <div className="statInfo">
+                    <h4>{t('sidebar.documents') || 'Tài liệu'}</h4>
+                    <p className="statCount">{t('dashboard.docsCount', { count: dashboardStats.docsCount }) || `${dashboardStats.docsCount} tài liệu`}</p>
+                    <p className="statSize">{fmtBytes(dashboardStats.docsSize)}</p>
+                  </div>
+                </div>
+
+                {/* Spaces Card */}
+                <div className="statCard clickableCard" onClick={() => setTab('spaces')}>
+                  <div className="statIcon iconSpaces">
+                    <Icons.Spaces size={20} />
+                  </div>
+                  <div className="statInfo">
+                    <h4>{t('sidebar.spaces') || 'Không gian con'}</h4>
+                    <p className="statCount">{t('dashboard.spacesCount', { count: dashboardStats.spacesCount }) || `${dashboardStats.spacesCount} không gian`}</p>
+                    <p className="statSize">{t('dashboard.spacesDesc') || 'Ghi chép & Lưu trữ'}</p>
+                  </div>
+                </div>
+
+                {/* Trash Card */}
+                <div className="statCard clickableCard" onClick={() => setAllFilesCollectionView('trash')}>
+                  <div className="statIcon iconTrash">
+                    <Icons.Trash size={20} />
+                  </div>
+                  <div className="statInfo">
+                    <h4>{t('sidebar.trashBin') || 'Thùng rác'}</h4>
+                    <p className="statCount">{t('dashboard.trashCount', { count: dashboardStats.trashCount }) || `${dashboardStats.trashCount} tệp đã xóa`}</p>
+                    <p className="statSize">{fmtBytes(dashboardStats.trashSize)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="viewTabs">
             <button 
               className={`tabBtn ${allFilesCollectionView === 'all' ? 'active' : ''}`}
@@ -489,6 +634,192 @@ export default function DashboardPage(): React.JSX.Element {
       )}
 
       <style jsx>{`
+        .dashboardSection {
+          margin-bottom: 28px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .processingBanner {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: rgba(234, 179, 8, 0.1);
+          border: 1px solid rgba(234, 179, 8, 0.2);
+          color: #eab308;
+          padding: 10px 16px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 500;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .spinningIcon {
+          display: inline-flex;
+          animation: spin 2s linear infinite;
+        }
+        .dashboardGrid {
+          display: grid;
+          grid-template-columns: 1.2fr 1.8fr;
+          gap: 16px;
+        }
+        @media (max-width: 900px) {
+          .dashboardGrid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .dashboardCard {
+          background: var(--bg-tile);
+          border: 1px solid var(--border-tile);
+          border-radius: 16px;
+          padding: 20px;
+          box-shadow: var(--card-shadow);
+        }
+        .storageCard {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 14px;
+        }
+        .storageCard .cardHeader {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .storageCard .cardHeader h3 {
+          font-size: 16px;
+          font-weight: 700;
+          margin: 0;
+          color: var(--text-primary);
+        }
+        .storageCard .percentText {
+          font-size: 20px;
+          font-weight: 800;
+          color: var(--button-primary-bg);
+        }
+        .progressBarContainer {
+          width: 100%;
+          height: 10px;
+          background: var(--bg-input);
+          border-radius: 99px;
+          overflow: hidden;
+        }
+        .progressBar {
+          height: 100%;
+          background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+          border-radius: 99px;
+          transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .storageDetails {
+          display: flex;
+          justify-content: space-between;
+          font-size: 12px;
+        }
+        .usedText {
+          color: var(--text-secondary);
+          font-weight: 600;
+        }
+        .freeText {
+          color: var(--text-muted);
+        }
+        .storageBreakdown {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          border-top: 1px solid var(--border-color);
+          padding-top: 12px;
+          margin-top: 4px;
+        }
+        .breakdownItem {
+          display: flex;
+          align-items: center;
+          font-size: 11.5px;
+          gap: 6px;
+        }
+        .breakdownItem .dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+        }
+        .originalDot { background: #3b82f6; }
+        .derivedDot { background: #8b5cf6; }
+        .trashDot { background: #f87171; }
+        
+        .breakdownItem .label {
+          color: var(--text-muted);
+          flex-grow: 1;
+        }
+        .breakdownItem .value {
+          color: var(--text-primary);
+          font-weight: 600;
+        }
+        .statsGrid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+        }
+        @media (max-width: 500px) {
+          .statsGrid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .statCard {
+          background: var(--bg-tile);
+          border: 1px solid var(--border-tile);
+          border-radius: 16px;
+          padding: 16px;
+          box-shadow: var(--card-shadow);
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          transition: all 0.2s ease;
+        }
+        .clickableCard {
+          cursor: pointer;
+        }
+        .clickableCard:hover {
+          transform: translateY(-2px);
+          border-color: var(--border-tile-hover);
+          box-shadow: var(--card-shadow-hover);
+        }
+        .statIcon {
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .iconPhotos { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .iconDocs { background: rgba(52, 211, 153, 0.1); color: #34d399; }
+        .iconSpaces { background: rgba(167, 139, 250, 0.1); color: #a78bfa; }
+        .iconTrash { background: rgba(248, 113, 113, 0.1); color: #f87171; }
+        
+        .statInfo {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .statInfo h4 {
+          margin: 0;
+          font-size: 13.5px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+        .statCount {
+          margin: 0;
+          font-size: 12px;
+          color: var(--text-secondary);
+          font-weight: 500;
+        }
+        .statSize {
+          margin: 0;
+          font-size: 10.5px;
+          color: var(--text-muted);
+        }
+
         .tabBtn {
           background: transparent;
           border: none;
