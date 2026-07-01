@@ -1,8 +1,8 @@
-'use client';
-
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Asset } from '../types';
 import { DocIcon, ChevronRight } from './Icons';
+import { useCloud } from '../context/CloudContext';
 
 
 interface AssetGridProps {
@@ -36,6 +36,30 @@ export default function AssetGrid({
   openPhoto,
   t
 }: AssetGridProps): React.JSX.Element {
+  const router = useRouter();
+  const { setTab, setDocCategoryFilter } = useCloud();
+
+  const handleNavigate = (group: string) => {
+    if (group === 'Ảnh & Video') {
+      setTab('photos');
+      router.push('/cloud/photos');
+    } else {
+      let filter = 'other';
+      if (group === 'PDF') filter = 'pdf';
+      else if (group === 'Word') filter = 'word';
+      else if (group === 'Excel/CSV') filter = 'excel';
+      else if (group === 'PowerPoint') filter = 'powerpoint';
+      else if (group === 'Markdown') filter = 'markdown';
+      else if (group === 'Text') filter = 'text';
+      else if (group === 'Nén') filter = 'archive';
+      else if (group === 'Code') filter = 'code';
+      
+      setTab('docs');
+      setDocCategoryFilter(filter);
+      router.push('/cloud/docs');
+    }
+  };
+
   return (
     <section className="contentPane">
 
@@ -49,11 +73,27 @@ export default function AssetGrid({
         return (
           <div key={group} className="monthBlock">
             {groupByTimeEnabled && (
-              <button className="groupHeader" onClick={() => toggleGroup(group)}>
+              <div 
+                className="groupHeader" 
+                role="button" 
+                tabIndex={0}
+                onClick={() => toggleGroup(group)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { toggleGroup(group); } }}
+              >
                 <ChevronRight size={14} className={`groupHeaderChevron ${isOpen ? 'open' : ''}`} />
                 <span>{group}</span>
                 <span className="groupCount">{items.length}</span>
-              </button>
+                <button 
+                  className="groupGoBtn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNavigate(group);
+                  }}
+                  title={t('actions.viewAll') || 'Xem tất cả'}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+                </button>
+              </div>
             )}
 
             <div className={`gridCollapseWrapper ${isOpen ? 'open' : ''}`}>
@@ -187,6 +227,28 @@ export default function AssetGrid({
           background: var(--bg-item-hover);
           padding: 2px 8px;
           border-radius: 6px;
+        }
+        .groupGoBtn {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid var(--border-tile);
+          color: var(--text-muted);
+          width: 24px;
+          height: 24px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          padding: 0;
+          margin-left: 6px;
+        }
+        .groupGoBtn:hover {
+          background: var(--button-primary-bg);
+          border-color: var(--button-primary-bg);
+          color: var(--button-primary-text);
+          box-shadow: 0 2px 8px var(--button-primary-shadow);
+          transform: scale(1.05);
         }
         .gridCollapseWrapper {
           display: grid;
