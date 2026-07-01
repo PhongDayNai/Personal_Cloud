@@ -20,6 +20,7 @@ import {
   setAssetTags,
   listDocProjects,
   assignDocProject,
+  setAssetDocProjects,
   moveToTrash,
   restoreFromTrash,
   purgeDeleted,
@@ -355,6 +356,18 @@ router.put('/:id/albums', requireAuth, checkAssetOwnership, async (req: Request,
   try {
     const result = await setAssetAlbums(req.params.id, albumNames);
     if (result.updated === 0) return res.status(404).json({ message: 'Asset not found' });
+    return res.json({ ok: true, ...result });
+  } catch (e: any) {
+    return res.status(500).json({ message: e.message });
+  }
+});
+
+// 17b. PUT cập nhật tập tài liệu (doc projects) của 1 asset
+router.put('/:id/doc-projects', requireAuth, checkAssetOwnership, async (req: Request, res: Response) => {
+  const projectNames = Array.isArray(req.body?.projectNames) ? req.body.projectNames : [];
+  try {
+    const result = await setAssetDocProjects(req.params.id, projectNames);
+    if (result.updated === 0) return res.status(404).json({ message: 'Không tìm thấy tài liệu hoặc định dạng không đúng' });
     return res.json({ ok: true, ...result });
   } catch (e: any) {
     return res.status(500).json({ message: e.message });

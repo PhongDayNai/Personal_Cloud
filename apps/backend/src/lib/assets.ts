@@ -645,6 +645,17 @@ export async function assignDocProject(ids: string[] = [], projectName = ''): Pr
   return { updated };
 }
 
+export async function setAssetDocProjects(id: string, projectNames: string[] = []): Promise<{ updated: number }> {
+  const names = projectNames.map(x => String(x || '').trim()).filter(Boolean);
+  const primaryProject = names[0] || null;
+
+  const res = await db.query(
+    'UPDATE assets SET doc_project_names = $1, doc_project_name = $2 WHERE id = $3 AND type != \'image\' AND type != \'video\'',
+    [names, primaryProject, id]
+  );
+  return { updated: res.rowCount || 0 };
+}
+
 export async function moveToTrash(ids: string[] = []): Promise<{ updated: number }> {
   if (ids.length === 0) return { updated: 0 };
 
