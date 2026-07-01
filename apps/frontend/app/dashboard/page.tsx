@@ -2,6 +2,131 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import CustomDatePicker from '../../components/CustomDatePicker';
+import { useLanguage } from '../../context/LanguageContext';
+
+interface CustomSelectProps {
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (val: string) => void;
+}
+
+function CustomSelect({ value, options, onChange }: CustomSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const clickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', clickOutside);
+    return () => document.removeEventListener('mousedown', clickOutside);
+  }, []);
+
+  const selectedOpt = options.find(o => o.value === value) || options[0];
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', width: '130px', userSelect: 'none' }}>
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          background: 'rgba(255, 255, 255, 0.03)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '8px',
+          padding: '8px 14px',
+          color: '#ffffff',
+          fontSize: '13px',
+          fontWeight: '500',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          transition: 'all 0.15s ease'
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'; e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'; }}
+      >
+        <span>{selectedOpt?.label}</span>
+        <svg 
+          width="12" 
+          height="12" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2.5" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+          style={{ 
+            marginLeft: '8px', 
+            color: '#a1a1aa', 
+            transition: 'transform 0.2s',
+            transform: isOpen ? 'rotate(180deg)' : 'none'
+          }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
+
+      <div style={{
+        position: 'absolute',
+        top: 'calc(100% + 6px)',
+        right: 0,
+        background: '#18181b',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        borderRadius: '8px',
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.7)',
+        padding: '4px',
+        zIndex: 1000,
+        minWidth: '100%',
+        boxSizing: 'border-box',
+        opacity: isOpen ? 1 : 0,
+        transform: isOpen ? 'translateY(0)' : 'translateY(-8px)',
+        visibility: isOpen ? 'visible' : 'hidden',
+        pointerEvents: isOpen ? 'auto' : 'none',
+        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+      }}>
+        {options.map((opt) => {
+          const isSel = opt.value === value;
+          return (
+            <div
+              key={opt.value}
+              onClick={() => {
+                onChange(opt.value);
+                setIsOpen(false);
+              }}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '6px',
+                color: isSel ? '#ffffff' : '#a1a1aa',
+                background: isSel ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                fontSize: '12.5px',
+                fontWeight: isSel ? '600' : '400',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                textAlign: 'left'
+              }}
+              onMouseEnter={(e) => {
+                if (!isSel) {
+                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSel) {
+                  e.currentTarget.style.color = '#a1a1aa';
+                  e.currentTarget.style.background = 'transparent';
+                }
+              }}
+            >
+              {opt.label}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // Interfaces & Types
 interface Asset {
@@ -147,9 +272,9 @@ const DOC_CATEGORY_LABELS: Record<string, string> = {
   other: 'Khác',
 };
 
-function monthLabel(iso: string | null): string {
+function monthLabel(iso: string | null, lang: string): string {
   const d = iso ? new Date(iso) : new Date();
-  return new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(d);
+  return new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', { month: 'long', year: 'numeric' }).format(d);
 }
 
 function yearLabel(iso: string | null): string {
@@ -160,12 +285,12 @@ function yearLabel(iso: string | null): string {
 function inferUploadKind(file: File): string {
   const t = (file?.type || '').toLowerCase();
   const name = (file?.name || '').toLowerCase();
-  if (t.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|heic|avif)$/.test(name)) return 'ảnh';
+  if (t.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|heic|avif)$/.test(name)) return 'image';
   if (t.startsWith('video/') || /\.(mp4|mov|mkv|webm|avi|m4v)$/.test(name)) return 'video';
-  return 'tài liệu/file khác';
+  return 'doc';
 }
 
-async function readErrorMessage(res: Response): Promise<string> {
+async function readErrorMessage(res: Response, translateFn: (key: string, replacements?: Record<string, string | number>) => string): Promise<string> {
   try {
     const data = await res.clone().json();
     if (data?.message) return String(data.message);
@@ -176,7 +301,7 @@ async function readErrorMessage(res: Response): Promise<string> {
       if (txt) return txt.slice(0, 300);
     } catch { }
   }
-  return 'không có chi tiết từ server';
+  return translateFn('messages.noDetailFromServer');
 }
 
 const LONG_PRESS_MS = 420;
@@ -339,6 +464,7 @@ function SmartVideo({
 }
 
 export default function DashboardPage(): React.JSX.Element {
+  const { language, setLanguage, t } = useLanguage();
   const api = useMemo(() => getApiOrigin(), []);
 
   const [usage, setUsage] = useState<any>(null);
@@ -381,7 +507,8 @@ export default function DashboardPage(): React.JSX.Element {
   const [showProfileMenu, setShowProfileMenu] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
-  const [settingsTab, setSettingsTab] = useState<'profile' | 'password' | 'invites'>('profile');
+  const [settingsTab, setSettingsTab] = useState<'general' | 'profile' | 'invites'>('general');
+  const [appearance, setAppearance] = useState<'system' | 'dark' | 'light'>('dark');
   const [profileNameInput, setProfileNameInput] = useState<string>('');
   const [updateProfileMsg, setUpdateProfileMsg] = useState<string>('');
 
@@ -398,13 +525,13 @@ export default function DashboardPage(): React.JSX.Element {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
-        setUpdateProfileMsg('Cập nhật tên hiển thị thành công!');
+        setUpdateProfileMsg(t('settings.updateProfileSuccess'));
       } else {
         const data = await res.json().catch(() => ({}));
-        setUpdateProfileMsg(`Lỗi: ${data.message || 'Không cập nhật được hồ sơ'}`);
+        setUpdateProfileMsg(`${t('messages.error')}: ${data.message || t('settings.updateProfileError')}`);
       }
     } catch (err: any) {
-      setUpdateProfileMsg(`Lỗi: ${err.message}`);
+      setUpdateProfileMsg(`${t('messages.error')}: ${err.message}`);
     }
   }
 
@@ -469,22 +596,22 @@ export default function DashboardPage(): React.JSX.Element {
         body: JSON.stringify(body)
       });
       if (res.ok) {
-        setCreateInviteMsg('Tạo mã mời thành công!');
+        setCreateInviteMsg(t('invite.createSuccess'));
         setMaxUsesInput(1);
         setExpiresInHoursInput('');
         setExpiresDateInput('');
         loadInvitations();
       } else {
         const data = await res.json().catch(() => ({}));
-        setCreateInviteMsg(`Lỗi: ${data.message || 'Không tạo được mã mời'}`);
+        setCreateInviteMsg(`${t('messages.error')}: ${data.message || t('invite.createError')}`);
       }
     } catch (err: any) {
-      setCreateInviteMsg(`Lỗi: ${err.message}`);
+      setCreateInviteMsg(`${t('messages.error')}: ${err.message}`);
     }
   }
 
   async function handleDeactivateInvitation(id: string) {
-    if (!window.confirm('Bạn có chắc chắn muốn vô hiệu hóa mã mời này không?')) return;
+    if (!window.confirm(t('invite.confirmLock'))) return;
     try {
       const res = await fetch(`${api}/api/admin/invitations/${id}/deactivate`, {
         method: 'PUT',
@@ -494,10 +621,10 @@ export default function DashboardPage(): React.JSX.Element {
         loadInvitations();
       } else {
         const data = await res.json().catch(() => ({}));
-        alert(`Lỗi: ${data.message}`);
+        alert(`${t('messages.error')}: ${data.message}`);
       }
     } catch (err: any) {
-      alert(`Lỗi: ${err.message}`);
+      alert(`${t('messages.error')}: ${err.message}`);
     }
   }
 
@@ -513,7 +640,7 @@ export default function DashboardPage(): React.JSX.Element {
       await fetch(`${api}/api/auth/logout`, { method: 'POST', credentials: 'include' });
       window.location.href = '/login';
     } catch (e) {
-      setErr('Không thể đăng xuất');
+      setErr(t('messages.logoutFailed'));
     }
   }
 
@@ -521,7 +648,7 @@ export default function DashboardPage(): React.JSX.Element {
     e.preventDefault();
     setChangePasswordMsg('');
     if (newPassword !== confirmPassword) {
-      setChangePasswordMsg('Lỗi: Mật khẩu mới không trùng khớp');
+      setChangePasswordMsg(t('settings.changePasswordMatchError'));
       return;
     }
 
@@ -548,10 +675,10 @@ export default function DashboardPage(): React.JSX.Element {
         setShowLogoutOthersConfirm(true);
       } else {
         const data = await res.json().catch(() => ({}));
-        setChangePasswordMsg(`Lỗi: ${data.message || 'Không đổi được mật khẩu'}`);
+        setChangePasswordMsg(`${t('messages.error')}: ${data.message || t('settings.changePasswordError')}`);
       }
     } catch (err: any) {
-      setChangePasswordMsg(`Lỗi: ${err.message || 'Lỗi kết nối'}`);
+      setChangePasswordMsg(`${t('messages.error')}: ${err.message || t('messages.connectionError')}`);
     }
   }
 
@@ -563,13 +690,13 @@ export default function DashboardPage(): React.JSX.Element {
           credentials: 'include',
         });
         if (res.ok) {
-          setMsg('Đã đăng xuất khỏi tất cả các thiết bị khác thành công');
+          setMsg(t('dialogs.logoutOthersSuccess'));
         } else {
           const data = await res.json().catch(() => ({}));
-          setErr(`Lỗi đăng xuất thiết bị khác: ${data.message}`);
+          setErr(t('dialogs.logoutOthersFail', { message: data.message || '' }));
         }
       } catch (err: any) {
-        setErr(`Lỗi kết nối: ${err.message}`);
+        setErr(`${t('messages.connectionError')}: ${err.message}`);
       }
     }
     setShowLogoutOthersConfirm(false);
@@ -674,12 +801,12 @@ export default function DashboardPage(): React.JSX.Element {
     if (!groupByTimeEnabled) return [['all', albumFilteredPhotos]];
     const m = new Map<string, Asset[]>();
     for (const p of albumFilteredPhotos) {
-      const key = groupMode === 'year' ? yearLabel(p.takenAt || p.uploadedAt) : monthLabel(p.takenAt || p.uploadedAt);
+      const key = groupMode === 'year' ? yearLabel(p.takenAt || p.uploadedAt) : monthLabel(p.takenAt || p.uploadedAt, language);
       if (!m.has(key)) m.set(key, []);
       m.get(key)!.push(p);
     }
     return Array.from(m.entries());
-  }, [albumFilteredPhotos, groupMode, groupByTimeEnabled]);
+  }, [albumFilteredPhotos, groupMode, groupByTimeEnabled, language]);
 
   const activeIndexInScope = activeIndex >= 0;
   const active = activeIndexInScope
@@ -744,26 +871,26 @@ export default function DashboardPage(): React.JSX.Element {
       if (meData?.user?.mustChangePassword) {
         setMustChangePassword(true);
         setShowSettingsModal(true);
-        setSettingsTab('password');
+        setSettingsTab('profile');
       }
 
-      const [u, a, p, t] = await Promise.all([
+      const [usageRes, assetsRes, projectsRes, tagsRes] = await Promise.all([
         fetch(`${api}/api/storage/usage`, { credentials: 'include' }),
         fetch(`${api}/api/assets?limit=1500&includeTrash=true`, { credentials: 'include' }),
         fetch(`${api}/api/assets/doc-projects`, { credentials: 'include' }),
         fetch(`${api}/api/assets/tags`, { credentials: 'include' }),
       ]);
-      if (!u.ok || !a.ok || !p.ok || !t.ok) throw new Error('API lỗi hoặc phiên đăng nhập hết hạn');
-      const usageData = await u.json();
-      const assetsData = await a.json();
-      const projectsData = await p.json();
-      const tagsData = await t.json();
+      if (!usageRes.ok || !assetsRes.ok || !projectsRes.ok || !tagsRes.ok) throw new Error(t('messages.apiErrorOrSessionExpired'));
+      const usageData = await usageRes.json();
+      const assetsData = await assetsRes.json();
+      const projectsData = await projectsRes.json();
+      const tagsData = await tagsRes.json();
       setUsage(usageData);
       setAssets(assetsData.items || []);
       setDocProjects(projectsData.items || []);
       setTags(tagsData.items || []);
     } catch (e: any) {
-      setErr(e.message || 'Không tải được dữ liệu');
+      setErr(e.message || t('messages.loadDataFailed'));
     }
   }
 
@@ -814,7 +941,7 @@ export default function DashboardPage(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey);
   }, [activeIndex, albumFilteredPhotos.length, docsFiltered.length, tab]);
 
-  async function uploadLargeFileByChunks(file: File) {
+  async function uploadLargeFileByChunks(file: File, translateFn: (key: string, replacements?: Record<string, string | number>) => string) {
     const init = await fetch(`${api}/api/assets/upload-chunk/init`, {
       method: 'POST',
       credentials: 'include',
@@ -822,8 +949,8 @@ export default function DashboardPage(): React.JSX.Element {
       body: JSON.stringify({ fileName: file.name, mime: file.type || 'application/octet-stream', totalSize: file.size, lastModified: file.lastModified }),
     });
     if (!init.ok) {
-      const detail = await readErrorMessage(init);
-      throw new Error(`Khởi tạo upload chunk thất bại (HTTP ${init.status}): ${detail}`);
+      const detail = await readErrorMessage(init, translateFn);
+      throw new Error(translateFn('messages.chunkUploadInitFailed', { status: init.status, detail }));
     }
     const initData = await init.json();
     const uploadId = initData.uploadId;
@@ -845,8 +972,8 @@ export default function DashboardPage(): React.JSX.Element {
         body: fd,
       });
       if (!r.ok) {
-        const detail = await readErrorMessage(r);
-        throw new Error(`Chunk ${i + 1}/${totalChunks} thất bại (HTTP ${r.status}): ${detail}`);
+        const detail = await readErrorMessage(r, translateFn);
+        throw new Error(translateFn('messages.chunkUploadPartFailed', { index: i + 1, total: totalChunks, status: r.status, detail }));
       }
     }
 
@@ -855,8 +982,8 @@ export default function DashboardPage(): React.JSX.Element {
       credentials: 'include',
     });
     if (!done.ok) {
-      const detail = await readErrorMessage(done);
-      throw new Error(`Hoàn tất chunk thất bại (HTTP ${done.status}): ${detail}`);
+      const detail = await readErrorMessage(done, translateFn);
+      throw new Error(translateFn('messages.chunkUploadCompleteFailed', { status: done.status, detail }));
     }
     return done.json();
   }
@@ -870,15 +997,24 @@ export default function DashboardPage(): React.JSX.Element {
 
     for (let idx = 0; idx < files.length; idx++) {
       const file = files[idx];
-      const kind = inferUploadKind(file);
+      const kindCode = inferUploadKind(file);
+      const kind = kindCode === 'image' ? t('messages.kindImage') : kindCode === 'video' ? t('messages.kindVideo') : t('messages.kindDoc');
       const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
       const big = file.size > 90 * 1024 * 1024; // >90MB dùng chunk tránh Cloudflare limit
 
       try {
-        setMsg(`Đang upload ${done}/${files.length} · File ${idx + 1}: ${file.name} (${kind}, ${sizeMb}MB, ${big ? 'chunk' : 'thường'})`);
+        setMsg(t('messages.uploadingDetail', {
+          done,
+          total: files.length,
+          index: idx + 1,
+          name: file.name,
+          kind,
+          size: sizeMb,
+          mode: big ? t('messages.uploadModeChunk') : t('messages.uploadModeNormal')
+        }));
 
         if (big) {
-          await uploadLargeFileByChunks(file);
+          await uploadLargeFileByChunks(file, t);
         } else {
           const form = new FormData();
           form.append('files', file);
@@ -889,18 +1025,18 @@ export default function DashboardPage(): React.JSX.Element {
             body: form,
           });
           if (!r.ok) {
-            const detail = await readErrorMessage(r);
-            throw new Error(`Upload thường thất bại (HTTP ${r.status}): ${detail}`);
+            const detail = await readErrorMessage(r, t);
+            throw new Error(`Upload failed (HTTP ${r.status}): ${detail}`);
           }
           await r.json();
         }
 
         done += 1;
-        setMsg(`✅ ${file.name} (${kind}) upload thành công · ${done}/${files.length}`);
+        setMsg(t('messages.uploadSuccessDetail', { name: file.name, kind, done, total: files.length }));
       } catch (ex: any) {
         const reason = ex?.message || 'unknown';
-        failed.push({ index: idx + 1, name: file.name, kind, sizeMb, mode: big ? 'chunk' : 'thường', reason });
-        setMsg(`❌ Lỗi file ${idx + 1}/${files.length}: ${file.name} (${kind}) · ${reason}`);
+        failed.push({ index: idx + 1, name: file.name, kind, sizeMb, mode: big ? t('messages.uploadModeChunk') : t('messages.uploadModeNormal'), reason });
+        setMsg(t('messages.uploadErrorDetail', { index: idx + 1, total: files.length, name: file.name, kind, reason }));
       }
     }
 
@@ -908,13 +1044,13 @@ export default function DashboardPage(): React.JSX.Element {
     e.target.value = '';
 
     if (failed.length === 0) {
-      setMsg(`Upload xong ${done}/${files.length} file`);
+      setMsg(t('messages.uploadDone', { done, total: files.length }));
       return;
     }
 
     const lines = failed.map((f) => `- #${f.index} ${f.name} | ${f.kind} | ${f.sizeMb}MB | ${f.mode} | ${f.reason}`);
-    setErr(`Upload có lỗi (${failed.length}/${files.length} file):\n${lines.join('\n')}`);
-    setMsg(`Upload hoàn tất có lỗi: thành công ${done}/${files.length}, lỗi ${failed.length}.`);
+    setErr(`${t('messages.uploadHasErrors', { failed: failed.length, total: files.length })}:\n${lines.join('\n')}`);
+    setMsg(t('messages.uploadDoneWithErrors', { done, total: files.length, failed: failed.length }));
   }
 
   async function moveSelectedToTrash() {
@@ -926,14 +1062,14 @@ export default function DashboardPage(): React.JSX.Element {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedIds }),
       });
-      if (!r.ok) throw new Error('Xóa thất bại');
+      if (!r.ok) throw new Error(t('messages.deleteFailed'));
       const data = await r.json();
-      setMsg(`Đã chuyển ${data.updated || 0} file vào thùng rác`);
+      setMsg(t('messages.trashedCount', { count: data.updated || 0 }));
       setSelectedIds([]);
       setSelectionMode(false);
       await loadData();
     } catch (e: any) {
-      setMsg(`Lỗi xóa: ${e.message || 'unknown'}`);
+      setMsg(t('messages.deleteError', { error: e.message || 'unknown' }));
     }
   }
 
@@ -946,20 +1082,20 @@ export default function DashboardPage(): React.JSX.Element {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedIds }),
       });
-      if (!r.ok) throw new Error('Khôi phục thất bại');
+      if (!r.ok) throw new Error(t('messages.restoreFailed'));
       const data = await r.json();
-      setMsg(`Đã khôi phục ${data.updated || 0} file`);
+      setMsg(t('messages.restoredCount', { count: data.updated || 0 }));
       setSelectedIds([]);
       setSelectionMode(false);
       await loadData();
     } catch (e: any) {
-      setMsg(`Lỗi khôi phục: ${e.message || 'unknown'}`);
+      setMsg(t('messages.restoreError', { error: e.message || 'unknown' }));
     }
   }
 
   async function purgeSelectedForever() {
     if (!selectedIds.length) return;
-    const ok = window.confirm('Xóa vĩnh viễn các file đã chọn? Không thể hoàn tác.');
+    const ok = window.confirm(t('dialogs.deleteForeverConfirm', { count: selectedIds.length }));
     if (!ok) return;
 
     try {
@@ -969,20 +1105,20 @@ export default function DashboardPage(): React.JSX.Element {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedIds }),
       });
-      if (!r.ok) throw new Error('Xóa vĩnh viễn thất bại');
+      if (!r.ok) throw new Error(t('messages.purgeFailed'));
       const data = await r.json();
-      setMsg(`Đã xóa vĩnh viễn ${data.removed || 0} file`);
+      setMsg(t('messages.purgedCount', { count: data.removed || 0 }));
       setSelectedIds([]);
       setSelectionMode(false);
       await loadData();
     } catch (e: any) {
-      setMsg(`Lỗi purge: ${e.message || 'unknown'}`);
+      setMsg(t('messages.purgeError', { error: e.message || 'unknown' }));
     }
   }
 
   async function addSelectedToAlbum() {
     if (!selectedIds.length) return;
-    const name = window.prompt('Tên album cần thêm vào:');
+    const name = window.prompt(t('viewer.newAlbumPrompt'));
     if (!name || !name.trim()) return;
 
     try {
@@ -992,18 +1128,18 @@ export default function DashboardPage(): React.JSX.Element {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedIds, albumName: name.trim() }),
       });
-      if (!r.ok) throw new Error('Thêm vào album thất bại');
+      if (!r.ok) throw new Error(t('messages.albumAddFailed'));
       const data = await r.json();
-      setMsg(`Đã thêm ${data.updated || 0} file vào album "${name.trim()}"`);
+      setMsg(t('messages.addedToAlbumCount', { count: data.updated || 0, name: name.trim() }));
       await loadData();
     } catch (e: any) {
-      setMsg(`Lỗi album: ${e.message || 'unknown'}`);
+      setMsg(t('messages.albumError', { error: e.message || 'unknown' }));
     }
   }
 
   async function addSelectedToDocProject() {
     if (!selectedIds.length) return;
-    const name = window.prompt('Tên project tài liệu cần thêm vào:');
+    const name = window.prompt(t('messages.projectPrompt'));
     if (!name || !name.trim()) return;
 
     try {
@@ -1013,20 +1149,20 @@ export default function DashboardPage(): React.JSX.Element {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedIds, projectName: name.trim() }),
       });
-      if (!r.ok) throw new Error('Thêm vào project tài liệu thất bại');
+      if (!r.ok) throw new Error(t('messages.projectAddFailed'));
       const data = await r.json();
-      setMsg(`Đã thêm ${data.updated || 0} tài liệu vào project "${name.trim()}"`);
+      setMsg(t('messages.addedToProjectCount', { count: data.updated || 0, name: name.trim() }));
       await loadData();
       await loadDocProjects();
     } catch (e: any) {
-      setMsg(`Lỗi project tài liệu: ${e.message || 'unknown'}`);
+      setMsg(t('messages.projectError', { error: e.message || 'unknown' }));
     }
   }
 
   async function loadAlbums() {
     try {
       const r = await fetch(`${api}/api/assets/albums`, { credentials: 'include' });
-      if (!r.ok) throw new Error('Không tải được album');
+      if (!r.ok) throw new Error(t('viewer.errorLoadAlbum'));
       const data = await r.json();
       setAlbums(data.items || []);
     } catch (err) {
@@ -1037,7 +1173,7 @@ export default function DashboardPage(): React.JSX.Element {
   async function loadDocProjects() {
     try {
       const r = await fetch(`${api}/api/assets/doc-projects`, { credentials: 'include' });
-      if (!r.ok) throw new Error('Không tải được nhóm dự án tài liệu');
+      if (!r.ok) throw new Error(t('viewer.errorLoadDocProjects'));
       const data = await r.json();
       setDocProjects(data.items || []);
     } catch (err) {
@@ -1072,20 +1208,20 @@ export default function DashboardPage(): React.JSX.Element {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ albumNames: selectedAlbumsForActive }),
       });
-      if (!r.ok) throw new Error('Cập nhật album thất bại');
+      if (!r.ok) throw new Error(t('viewer.albumUpdateFailed'));
       await loadData();
       await loadAlbums();
       setShowAlbumPicker(false);
-      setMsg('Đã cập nhật danh sách album thành công');
+      setMsg(t('viewer.albumUpdateSuccess'));
     } catch (e: any) {
-      setMsg(`Lỗi lưu album: ${e.message}`);
+      setMsg(t('viewer.albumSaveError', { error: e.message }));
     }
   }
 
   async function loadTags() {
     try {
       const r = await fetch(`${api}/api/assets/tags`, { credentials: 'include' });
-      if (!r.ok) throw new Error('Không tải được danh mục nhãn');
+      if (!r.ok) throw new Error(t('viewer.tagsLoadFailed'));
       const data = await r.json();
       setTags(data.items || []);
     } catch (e) {
@@ -1106,7 +1242,7 @@ export default function DashboardPage(): React.JSX.Element {
       prev.includes(trimmed) ? prev : [...prev, trimmed]
     );
     setTags((prev) => {
-      if (prev.some((t) => t.name.toLowerCase() === trimmed)) return prev;
+      if (prev.some((tVal) => tVal.name.toLowerCase() === trimmed)) return prev;
       return [...prev, { name: trimmed, count: 0 }];
     });
   }
@@ -1120,13 +1256,13 @@ export default function DashboardPage(): React.JSX.Element {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tags: selectedTagsForActive }),
       });
-      if (!r.ok) throw new Error('Cập nhật nhãn thất bại');
+      if (!r.ok) throw new Error(t('viewer.tagsUpdateFailed'));
       await loadData();
       await loadTags();
       setShowTagPicker(false);
-      setMsg('Đã cập nhật danh sách nhãn thành công');
+      setMsg(t('viewer.tagsUpdateSuccess'));
     } catch (e: any) {
-      setMsg(`Lỗi lưu nhãn: ${e.message}`);
+      setMsg(t('viewer.tagsSaveError', { error: e.message }));
     }
   }
 
@@ -1186,15 +1322,15 @@ export default function DashboardPage(): React.JSX.Element {
           <div className="logo">AetherCloud</div>
 
         <button className={`navItem ${tab === 'photos' && collectionView === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); setSelectionMode(false); setSelectedIds([]); }}>
-          <span className="ico">🖼</span><span>Tất cả ảnh/video</span><span className="count">{basePhotoAssets.filter((x) => !x.isDeleted).length}</span>
+          <span className="ico">🖼</span><span>{t('sidebar.allPhotosVideos')}</span><span className="count">{basePhotoAssets.filter((x) => !x.isDeleted).length}</span>
         </button>
 
         <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setTab('docs'); setDocCollectionView('all'); setDocCategoryFilter('all'); setSelectedDocProject('all'); setSelectionMode(false); setSelectedIds([]); }}>
-          <span className="ico">📁</span><span>Tài liệu</span><span className="count">{docs.length}</span>
+          <span className="ico">📁</span><span>{t('sidebar.documents')}</span><span className="count">{docs.length}</span>
         </button>
 
         <div className="sectionWrap">
-          <div className="sectionTitle">{tab === 'photos' ? 'Bộ sưu tập' : 'Khu vực tài liệu'}</div>
+          <div className="sectionTitle">{tab === 'photos' ? t('sidebar.collectionsTitle') : t('sidebar.docsAreaTitle')}</div>
 
           {tab === 'photos' ? (
             <div className="sectionBody sectionIn">
@@ -1203,16 +1339,16 @@ export default function DashboardPage(): React.JSX.Element {
                 onClick={() => setAlbumsExpanded((v) => !v)}
               >
                 <span className="ico">🗂</span>
-                <span>Album</span>
+                <span>{t('sidebar.albumsTitle')}</span>
                 <span className="chev">{albumsExpanded ? '▾' : '▸'}</span>
               </button>
 
               {albumsExpanded && (
                 <div className="subList">
                   <button className={`subItem ${selectedAlbum === 'all' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum('all'); }}>
-                    Tất cả
+                    {t('sidebar.all')}
                   </button>
-                  {availableAlbums.length === 0 && <div className="subHint">Chưa có album thủ công</div>}
+                  {availableAlbums.length === 0 && <div className="subHint">{t('sidebar.noManualAlbums')}</div>}
                   {availableAlbums.map(([name, count]) => (
                     <button key={name} className={`subItem ${selectedAlbum === name ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('all'); setSelectedAlbum(name); }}>
                       {name} ({count})
@@ -1222,34 +1358,34 @@ export default function DashboardPage(): React.JSX.Element {
               )}
 
               <button className={`navItem ${tab === 'photos' && collectionView === 'recent' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('recent'); setSelectedAlbum('all'); }}>
-                <span className="ico">🕒</span><span>Mới thêm gần đây</span>
+                <span className="ico">🕒</span><span>{t('sidebar.recentlyAdded')}</span>
               </button>
               <button className={`navItem ${tab === 'photos' && collectionView === 'images' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('images'); setSelectedAlbum('all'); }}>
-                <span className="ico">🖼</span><span>Ảnh</span>
+                <span className="ico">🖼</span><span>{t('sidebar.imagesOnly')}</span>
               </button>
               <button className={`navItem ${tab === 'photos' && collectionView === 'videos' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('videos'); setSelectedAlbum('all'); }}>
-                <span className="ico">🎬</span><span>Video</span>
+                <span className="ico">🎬</span><span>{t('sidebar.videosOnly')}</span>
               </button>
               <button className={`navItem ${tab === 'photos' && collectionView === 'trash' ? 'active' : ''}`} onClick={() => { setTab('photos'); setCollectionView('trash'); setSelectedAlbum('all'); }}>
-                <span className="ico">🗑</span><span>Thùng rác</span><span className="count">{basePhotoAssets.filter((x) => x.isDeleted).length}</span>
+                <span className="ico">🗑</span><span>{t('sidebar.trashBin')}</span><span className="count">{basePhotoAssets.filter((x) => x.isDeleted).length}</span>
               </button>
             </div>
           ) : (
             <div className="sectionBody sectionIn">
               <button className={`navItem ${tab === 'docs' && docCollectionView === 'all' ? 'active' : ''}`} onClick={() => { setTab('docs'); setDocCollectionView('all'); setSelectionMode(false); setSelectedIds([]); }}>
-                <span className="ico">📄</span><span>Tài liệu đang có</span><span className="count">{docs.length}</span>
+                <span className="ico">📄</span><span>{t('sidebar.docsActive')}</span><span className="count">{docs.length}</span>
               </button>
               <button className={`navItem ${tab === 'docs' && docCollectionView === 'trash' ? 'active' : ''}`} onClick={() => { setTab('docs'); setDocCollectionView('trash'); setSelectionMode(false); setSelectedIds([]); }}>
-                <span className="ico">🗑</span><span>Tài liệu trong thùng rác</span><span className="count">{trashedDocs.length}</span>
+                <span className="ico">🗑</span><span>{t('sidebar.docsTrash')}</span><span className="count">{trashedDocs.length}</span>
               </button>
 
               <button className={`navItem ${docProjectsExpanded ? 'active' : ''}`} onClick={() => setDocProjectsExpanded((v) => !v)}>
-                <span className="ico">📚</span><span>Project tài liệu</span><span className="chev">{docProjectsExpanded ? '▾' : '▸'}</span>
+                <span className="ico">📚</span><span>{t('sidebar.docProjectsTitle')}</span><span className="chev">{docProjectsExpanded ? '▾' : '▸'}</span>
               </button>
               {docProjectsExpanded && (
                 <div className="subList">
-                  <button className={`subItem ${selectedDocProject === 'all' ? 'active' : ''}`} onClick={() => setSelectedDocProject('all')}>Tất cả project</button>
-                  {docProjects.length === 0 && <div className="subHint">Chưa có project tài liệu</div>}
+                  <button className={`subItem ${selectedDocProject === 'all' ? 'active' : ''}`} onClick={() => setSelectedDocProject('all')}>{t('sidebar.allProjects')}</button>
+                  {docProjects.length === 0 && <div className="subHint">{t('sidebar.noDocProjects')}</div>}
                   {docProjects.map((p) => (
                     <button key={p.name} className={`subItem ${selectedDocProject === p.name ? 'active' : ''}`} onClick={() => setSelectedDocProject(p.name)}>
                       {p.name} ({p.count})
@@ -1259,19 +1395,19 @@ export default function DashboardPage(): React.JSX.Element {
               )}
 
               <button className={`navItem ${docCategoryFilter === 'all' ? 'active' : ''}`} onClick={() => setDocCategoryFilter('all')}>
-                <span className="ico">🧩</span><span>Tất cả loại</span><span className="count">{docsBase.length}</span>
+                <span className="ico">🧩</span><span>{t('sidebar.allDocTypes')}</span><span className="count">{docsBase.length}</span>
               </button>
 
               {['pdf', 'excel', 'word', 'markdown', 'text'].map((k) => (
                 <button key={k} className={`navItem ${docCategoryFilter === k ? 'active' : ''}`} onClick={() => setDocCategoryFilter(k)}>
                   <span className="ico">{k === 'pdf' ? '📕' : k === 'excel' ? '📊' : k === 'word' ? '📝' : k === 'markdown' ? '🔤' : '📄'}</span>
-                  <span>{DOC_CATEGORY_LABELS[k]}</span>
+                  <span>{t('categories.' + k)}</span>
                   <span className="count">{docCategoryCounts.get(k) || 0}</span>
                 </button>
               ))}
 
               <button className={`navItem ${docTypeFilter === 'all' && docKindsExpanded ? 'active' : ''}`} onClick={() => setDocKindsExpanded((v) => !v)}>
-                <span className="ico">🗂</span><span>Hiện tất cả loại</span><span className="chev">{docKindsExpanded ? '▾' : '▸'}</span>
+                <span className="ico">🗂</span><span>{t('sidebar.showAllDocTypes')}</span><span className="chev">{docKindsExpanded ? '▾' : '▸'}</span>
               </button>
 
               {docKindsExpanded && (
@@ -1282,7 +1418,7 @@ export default function DashboardPage(): React.JSX.Element {
                     </button>
                   ))}
                   <button className={`subItem ${docTypeFilter === 'all' ? 'active' : ''}`} onClick={() => setDocTypeFilter('all')}>
-                    Bỏ lọc loại cụ thể
+                    {t('sidebar.clearSpecificFilter')}
                   </button>
                 </div>
               )}
@@ -1291,9 +1427,9 @@ export default function DashboardPage(): React.JSX.Element {
         </div>
 
         <div className="tagsSection">
-          <div className="tagsHeader">Tags / Nhãn</div>
+          <div className="tagsHeader">{t('sidebar.tagsTitle')}</div>
           {tags.length === 0 ? (
-            <div className="subHint">Chưa có nhãn nào.</div>
+            <div className="subHint">{t('sidebar.noTags')}</div>
           ) : (
             <div className="tagCloud">
               {tags.map((t) => {
@@ -1306,7 +1442,7 @@ export default function DashboardPage(): React.JSX.Element {
                 );
               })}
               {selectedFilterTags.length > 0 && (
-                <button className="tagChipClear" onClick={() => setSelectedFilterTags([])}>Bỏ lọc</button>
+                <button className="tagChipClear" onClick={() => setSelectedFilterTags([])}>{t('sidebar.clearFilter')}</button>
               )}
             </div>
           )}
@@ -1314,7 +1450,7 @@ export default function DashboardPage(): React.JSX.Element {
         </div>
 
         <div className="storageCard" ref={usageCardRef}>
-          <div className="label">Dung lượng</div>
+          <div className="label">{t('sidebar.storageTitle')}</div>
           {usage ? (
             <>
               {(() => {
@@ -1322,16 +1458,16 @@ export default function DashboardPage(): React.JSX.Element {
                 const appPercent = usage.totalBytes > 0 ? Number(((appUsed / usage.totalBytes) * 100).toFixed(4)) : 0;
                 return (
                   <>
-                    <div className="row"><span>AetherCloud dùng</span><b>{fmtBytes(appUsed)}</b></div>
-                    <div className="row"><span>Tổng ổ</span><b>{fmtBytes(usage.totalBytes)}</b></div>
+                    <div className="row"><span>{t('sidebar.storageUsed')}</span><b>{fmtBytes(appUsed)}</b></div>
+                    <div className="row"><span>{t('sidebar.totalDisk')}</span><b>{fmtBytes(usage.totalBytes)}</b></div>
                     <div className="bar"><div className="barFill" style={{ width: `${Math.min(100, appPercent)}%` }} /></div>
                     <small>AetherCloud: {appPercent}% · Filesystem: {usage.usedPercent}%</small>
-                    {Number(usage.processingCount || 0) > 0 && <small>Đang xử lý media: {usage.processingCount} file · tạm giữ nguyên số usage</small>}
+                    {Number(usage.processingCount || 0) > 0 && <small>{t('sidebar.processingMedia', { count: usage.processingCount })}</small>}
                   </>
                 );
               })()}
             </>
-          ) : <small>Đang tải...</small>}
+          ) : <small>{t('sidebar.loading')}</small>}
         </div>
 
         <div className="profileSection" onClick={(e) => e.stopPropagation()}>
@@ -1340,8 +1476,8 @@ export default function DashboardPage(): React.JSX.Element {
               {user ? user.name.charAt(0).toUpperCase() : 'U'}
             </div>
             <div className="profileMeta">
-              <div className="profileName">{user ? (user.role === 'admin' ? user.name : `Chào ${user.name},`) : 'Đang tải...'}</div>
-              <div className="profileRole">{user ? (user.role === 'admin' ? 'Quản trị viên' : 'Thành viên') : ''}</div>
+              <div className="profileName">{user ? (user.role === 'admin' ? user.name : t('profile.hello', { name: user.name })) : t('sidebar.loading')}</div>
+              <div className="profileRole">{user ? (user.role === 'admin' ? t('profile.admin') : t('profile.member')) : ''}</div>
             </div>
             <div className="profileChevron">▾</div>
           </div>
@@ -1357,19 +1493,19 @@ export default function DashboardPage(): React.JSX.Element {
                     user.name.charAt(0).toUpperCase()
                   )}
                 </div>
-                <div className="popoverUserName">{user.role === 'admin' ? user.name : `Chào ${user.name},`}</div>
+                <div className="popoverUserName">{user.role === 'admin' ? user.name : t('profile.hello', { name: user.name })}</div>
                 <div className="popoverUserBadge">
-                  {user.role === 'admin' ? 'Quản trị viên' : 'Thành viên'}
+                  {user.role === 'admin' ? t('profile.admin') : t('profile.member')}
                 </div>
               </div>
               <hr className="popoverDivider" />
-              <button className="popoverItem" onClick={() => { setShowSettingsModal(true); setSettingsTab('profile'); setProfileNameInput(user?.name || ''); setUpdateProfileMsg(''); setShowProfileMenu(false); }}>
+              <button className="popoverItem" onClick={() => { setShowSettingsModal(true); setSettingsTab('general'); setProfileNameInput(user?.name || ''); setUpdateProfileMsg(''); setShowProfileMenu(false); }}>
                 <span className="popoverIcon"><Icons.Settings /></span>
-                <span>Cài đặt</span>
+                <span>{t('profile.settings')}</span>
               </button>
               <button className="popoverItem" onClick={() => { handleLogout(); setShowProfileMenu(false); }}>
                 <span className="popoverIcon"><Icons.LogOut /></span>
-                <span>Đăng xuất</span>
+                <span>{t('profile.logout')}</span>
               </button>
             </div>
           )}
@@ -1378,30 +1514,30 @@ export default function DashboardPage(): React.JSX.Element {
 
       <main className="main">
         <header className="topbar">
-          <input className="search" placeholder="Tìm theo tên file..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="search" placeholder={t('topbar.searchPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} />
 
           <div className="actions">
             <label className="uploadBtn">
-              Upload
+              {t('actions.upload')}
               <input type="file" multiple onChange={onUpload} hidden />
             </label>
 
             <button className="ghost" onClick={() => { setSelectionMode((v) => !v); if (selectionMode) setSelectedIds([]); }}>
-              {selectionMode ? `Thoát chọn (${selectedIds.length})` : 'Chọn nhiều'}
+              {selectionMode ? t('actions.exitSelect', { count: selectedIds.length }) : t('actions.selectMultiple')}
             </button>
 
             {selectionMode && selectedIds.length > 0 && (
               <>
                 {(tab === 'photos' && collectionView !== 'trash') || (tab === 'docs' && docCollectionView !== 'trash') ? (
                   <>
-                    {tab === 'photos' && <button className="ghost" onClick={addSelectedToAlbum}>Thêm vào album</button>}
-                    {tab === 'docs' && <button className="ghost" onClick={addSelectedToDocProject}>Thêm vào project tài liệu</button>}
-                    <button className="danger" onClick={moveSelectedToTrash}>Xóa</button>
+                    {tab === 'photos' && <button className="ghost" onClick={addSelectedToAlbum}>{t('actions.addToAlbum')}</button>}
+                    {tab === 'docs' && <button className="ghost" onClick={addSelectedToDocProject}>{t('actions.addToProject')}</button>}
+                    <button className="danger" onClick={moveSelectedToTrash}>{t('actions.delete')}</button>
                   </>
                 ) : (
                   <>
-                    <button className="ghost" onClick={restoreSelectedFromTrash}>Khôi phục</button>
-                    <button className="danger" onClick={purgeSelectedForever}>Xóa vĩnh viễn</button>
+                    <button className="ghost" onClick={restoreSelectedFromTrash}>{t('actions.restore')}</button>
+                    <button className="danger" onClick={purgeSelectedForever}>{t('actions.deleteForever')}</button>
                   </>
                 )}
               </>
@@ -1416,21 +1552,21 @@ export default function DashboardPage(): React.JSX.Element {
           <section className="contentPane">
             <div className="groupToggleWrap">
               <button className={`chip ${groupByTimeEnabled ? 'active' : ''}`} onClick={() => setGroupByTimeEnabled((v) => !v)}>
-                {groupByTimeEnabled ? 'Tắt gom nhóm theo thời gian' : 'Bật gom nhóm theo thời gian'}
+                {groupByTimeEnabled ? t('dashboard.toggleGroupOff') : t('dashboard.toggleGroupOn')}
               </button>
               {groupByTimeEnabled && (
                 <>
-                  <span className="groupLabel">Theo:</span>
-                  <button className={`chip ${groupMode === 'month' ? 'active' : ''}`} onClick={() => setGroupMode('month')}>Tháng</button>
-                  <button className={`chip ${groupMode === 'year' ? 'active' : ''}`} onClick={() => setGroupMode('year')}>Năm</button>
+                  <span className="groupLabel">{t('dashboard.groupBy')}:</span>
+                  <button className={`chip ${groupMode === 'month' ? 'active' : ''}`} onClick={() => setGroupMode('month')}>{t('dashboard.groupMonth')}</button>
+                  <button className={`chip ${groupMode === 'year' ? 'active' : ''}`} onClick={() => setGroupMode('year')}>{t('dashboard.groupYear')}</button>
                 </>
               )}
             </div>
 
-            {collectionView === 'recent' && <div className="hint">Đang hiển thị ảnh/video mới thêm trong 2 tuần gần đây.</div>}
-            {collectionView === 'trash' && <div className="hint">Thùng rác: chọn nhiều để khôi phục hoặc xóa vĩnh viễn.</div>}
+            {collectionView === 'recent' && <div className="hint">{t('dashboard.recentHint')}</div>}
+            {collectionView === 'trash' && <div className="hint">{t('dashboard.trashHint')}</div>}
 
-            {photoGroups.length === 0 && <div className="hint">Không có dữ liệu phù hợp.</div>}
+            {photoGroups.length === 0 && <div className="hint">{t('dashboard.noDataMatching')}</div>}
 
             {photoGroups.map(([group, items]) => {
               const isOpen = expandedGroups[group] ?? true;
@@ -1482,16 +1618,16 @@ export default function DashboardPage(): React.JSX.Element {
         {tab === 'docs' && (
           <section className="contentPane">
             <div className="docFilters">
-              <span>Loại cụ thể:</span>
+              <span>{t('dashboard.specificType')}:</span>
               <select value={docTypeFilter} onChange={(e) => setDocTypeFilter(e.target.value)}>
-                <option value="all">Tất cả</option>
-                {docTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+                <option value="all">{t('sidebar.all')}</option>
+                {docTypes.map((tVal) => <option key={tVal} value={tVal}>{tVal}</option>)}
               </select>
               {selectedDocProject !== 'all' && <span className="chip active">Project: {selectedDocProject}</span>}
             </div>
 
-            {docCollectionView === 'trash' && <div className="hint">Thùng rác tài liệu: chọn nhiều để khôi phục hoặc xóa vĩnh viễn.</div>}
-            {docsGrouped.length === 0 && <div className="hint">Không có tài liệu phù hợp.</div>}
+            {docCollectionView === 'trash' && <div className="hint">{t('dashboard.docsTrashHint')}</div>}
+            {docsGrouped.length === 0 && <div className="hint">{t('dashboard.noDocsMatching')}</div>}
 
             {docsGrouped.map(([group, items]) => (
               <div key={group} className="docGroup">
@@ -1526,10 +1662,10 @@ export default function DashboardPage(): React.JSX.Element {
               active.processingStatus === 'processing' ? (
                 <div className="videoProcessingOverlay mediaEnter">
                   <div className="loadingSpinner" />
-                  <div className="overlayTitle">Đang tối ưu hóa Video</div>
-                  <div className="overlayDesc">Hệ thống đang tiến hành nén định dạng và tạo phân đoạn phát trực tuyến (HLS) tự động ở chế độ nền. Bạn vẫn có thể tải video gốc về máy để xem trước.</div>
+                  <div className="overlayTitle">{t('viewer.videoOptimizing')}</div>
+                  <div className="overlayDesc">{t('viewer.videoOptimizingDesc')}</div>
                   <a href={`${api}/api/assets/_media/original/${active.id}`} download={active.originalName} className="downloadOriginalBtn" onClick={(e) => e.stopPropagation()}>
-                    <span>Tải video gốc về máy</span>
+                    <span>{t('viewer.downloadOriginal')}</span>
                     <span>↓</span>
                   </a>
                 </div>
@@ -1552,7 +1688,7 @@ export default function DashboardPage(): React.JSX.Element {
                 <div className="docIcon">{docIconOf(active)}</div>
                 <div className="docName">{active.originalName}</div>
                 <a href={`${api}/api/assets/_media/original/${active.id}`} target="_blank" rel="noreferrer" className="ghost" style={{ marginTop: '16px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                  <span>Mở tài liệu</span>
+                  <span>{t('viewer.openDoc')}</span>
                   <span>↗</span>
                 </a>
               </div>
@@ -1572,7 +1708,7 @@ export default function DashboardPage(): React.JSX.Element {
                 setShowAlbumPicker((v) => !v);
                 setShowTagPicker(false);
               } catch (er) {
-                setMsg('Không tải được album');
+                setMsg(t('viewer.errorLoadAlbum'));
               }
             }}>＋</button>
           )}
@@ -1586,7 +1722,7 @@ export default function DashboardPage(): React.JSX.Element {
               setShowTagPicker((v) => !v);
               setShowAlbumPicker(false);
             } catch (er) {
-              setMsg('Không tải được nhãn');
+              setMsg(t('viewer.errorLoadTags'));
             }
           }}>🏷</button>
           <button className="close" onClick={(e) => { e.stopPropagation(); setActiveIndex(-1); setShowInfo(false); setShowAlbumPicker(false); setShowTagPicker(false); }}>✕</button>
@@ -1594,19 +1730,19 @@ export default function DashboardPage(): React.JSX.Element {
           {showInfo && active && (
             <div className="infoPanel" onClick={(e) => e.stopPropagation()}>
               <div><b>{active.originalName}</b></div>
-              <div>Loại: {active.mime}</div>
-              <div>Dung lượng: {fmtBytes(active.size)}</div>
-              <div>Taken: {active.takenAt || '-'}</div>
+              <div>{t('details.format')}: {active.mime}</div>
+              <div>{t('details.size')}: {fmtBytes(active.size)}</div>
+              <div>{t('details.createdAt')}: {active.takenAt || '-'}</div>
               <div>Upload: {active.uploadedAt || '-'}</div>
               {active.type !== 'file' && <div>Album: {(active.albumNames || []).join(', ') || '-'}</div>}
-              <div>Tags: {(active.tags || []).map(t => `#${t}`).join(', ') || '-'}</div>
+              <div>Tags: {(active.tags || []).map(tVal => `#${tVal}`).join(', ') || '-'}</div>
             </div>
           )}
 
           {showAlbumPicker && (
             <div className="albumPanel" onClick={(e) => e.stopPropagation()}>
-              <input className="albumSearch" placeholder="Tìm album..." value={albumQuery} onChange={(e) => setAlbumQuery(e.target.value)} />
-              <button className="albumCreate" onClick={() => createNewAlbumInSelection(albumQuery || window.prompt('Tên album mới:') || '')}>+ Tạo album mới</button>
+              <input className="albumSearch" placeholder={t('viewer.searchAlbumPlaceholder')} value={albumQuery} onChange={(e) => setAlbumQuery(e.target.value)} />
+              <button className="albumCreate" onClick={() => createNewAlbumInSelection(albumQuery || window.prompt(t('viewer.newAlbumPrompt')) || '')}>+ {t('viewer.createNewAlbum')}</button>
               <div className="albumList">
                 {albums.filter((a) => a.name.toLowerCase().includes(albumQuery.toLowerCase())).map((a) => {
                   const isSelected = selectedAlbumsForActive.includes(a.name);
@@ -1620,31 +1756,31 @@ export default function DashboardPage(): React.JSX.Element {
                 })}
               </div>
               <div className="albumActions">
-                <button className="albumBtnSave" onClick={saveActiveAlbums}>Lưu</button>
-                <button className="albumBtnCancel" onClick={() => setShowAlbumPicker(false)}>Hủy</button>
+                <button className="albumBtnSave" onClick={saveActiveAlbums}>{t('actions.save')}</button>
+                <button className="albumBtnCancel" onClick={() => setShowAlbumPicker(false)}>{t('actions.cancel')}</button>
               </div>
             </div>
           )}
 
           {showTagPicker && (
             <div className="tagPanel" onClick={(e) => e.stopPropagation()}>
-              <input className="tagSearch" placeholder="Tìm hoặc tạo nhãn..." value={tagQuery} onChange={(e) => setTagQuery(e.target.value)} />
-              <button className="tagCreate" onClick={() => createNewTagInSelection(tagQuery || window.prompt('Tên nhãn mới:') || '')}>+ Tạo nhãn mới</button>
+              <input className="tagSearch" placeholder={t('viewer.searchOrCreateTagPlaceholder')} value={tagQuery} onChange={(e) => setTagQuery(e.target.value)} />
+              <button className="tagCreate" onClick={() => createNewTagInSelection(tagQuery || window.prompt(t('viewer.newTagPrompt')) || '')}>+ {t('viewer.createNewTag')}</button>
               <div className="tagList">
-                {tags.filter((t) => t.name.toLowerCase().includes(tagQuery.toLowerCase())).map((t) => {
-                  const isSelected = selectedTagsForActive.includes(t.name);
+                {tags.filter((tVal) => tVal.name.toLowerCase().includes(tagQuery.toLowerCase())).map((tVal) => {
+                  const isSelected = selectedTagsForActive.includes(tVal.name);
                   return (
-                    <button key={t.name} className={`tagItem ${isSelected ? 'selected' : ''}`} onClick={() => toggleTagSelection(t.name)}>
+                    <button key={tVal.name} className={`tagItem ${isSelected ? 'selected' : ''}`} onClick={() => toggleTagSelection(tVal.name)}>
                       <span className="chk">{isSelected ? '✓' : ''}</span>
-                      <span>#{t.name}</span>
-                      <span className="cnt">({t.count})</span>
+                      <span>#{tVal.name}</span>
+                      <span className="cnt">({tVal.count})</span>
                     </button>
                   );
                 })}
               </div>
               <div className="tagActions">
-                <button className="tagBtnSave" onClick={saveActiveTags}>Lưu</button>
-                <button className="tagBtnCancel" onClick={() => setShowTagPicker(false)}>Hủy</button>
+                <button className="tagBtnSave" onClick={saveActiveTags}>{t('actions.save')}</button>
+                <button className="tagBtnCancel" onClick={() => setShowTagPicker(false)}>{t('actions.cancel')}</button>
               </div>
             </div>
           )}
@@ -1663,7 +1799,34 @@ export default function DashboardPage(): React.JSX.Element {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
+          animation: 'backdropFadeIn 0.25s ease-out'
         }} onClick={() => { if (!mustChangePassword) setShowSettingsModal(false); }}>
+          <style>{`
+            @keyframes backdropFadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes modalScaleIn {
+              from {
+                opacity: 0;
+                transform: scale(0.96) translateY(12px);
+              }
+              to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+              }
+            }
+            @keyframes tabSlideIn {
+              from {
+                opacity: 0;
+                transform: translateY(6px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+          `}</style>
           <div style={{
             display: 'flex',
             gap: '20px',
@@ -1671,6 +1834,7 @@ export default function DashboardPage(): React.JSX.Element {
             maxWidth: '880px',
             height: '430px',
             alignItems: 'stretch',
+            animation: 'modalScaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
           }} onClick={(e) => e.stopPropagation()}>
             
             {/* Cột các tab Option bên trái */}
@@ -1681,6 +1845,32 @@ export default function DashboardPage(): React.JSX.Element {
               gap: '6px',
               flexShrink: 0
             }}>
+              <button 
+                onClick={() => setSettingsTab('general')}
+                style={{
+                  background: settingsTab === 'general' ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: settingsTab === 'general' ? '#ffffff' : '#a1a1aa',
+                  padding: '11px 12px',
+                  fontSize: '13.5px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  transition: 'all 0.15s ease',
+                  textAlign: 'left',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
+                onMouseEnter={(e: any) => { if (settingsTab !== 'general') e.currentTarget.style.color = '#ffffff'; }}
+                onMouseLeave={(e: any) => { if (settingsTab !== 'general') e.currentTarget.style.color = '#a1a1aa'; }}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', opacity: settingsTab === 'general' ? 1 : 0.7 }}><Icons.Settings /></span>
+                <span>{t('settings.tabGeneral')}</span>
+              </button>
+
               <button 
                 onClick={() => setSettingsTab('profile')}
                 style={{
@@ -1704,33 +1894,7 @@ export default function DashboardPage(): React.JSX.Element {
                 onMouseLeave={(e: any) => { if (settingsTab !== 'profile') e.currentTarget.style.color = '#a1a1aa'; }}
               >
                 <span style={{ display: 'inline-flex', alignItems: 'center', opacity: settingsTab === 'profile' ? 1 : 0.7 }}><Icons.User /></span>
-                <span>Hồ sơ cá nhân</span>
-              </button>
-
-              <button 
-                onClick={() => setSettingsTab('password')}
-                style={{
-                  background: settingsTab === 'password' ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: settingsTab === 'password' ? '#ffffff' : '#a1a1aa',
-                  padding: '11px 12px',
-                  fontSize: '13.5px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  transition: 'all 0.15s ease',
-                  textAlign: 'left',
-                  width: '100%',
-                  boxSizing: 'border-box'
-                }}
-                onMouseEnter={(e: any) => { if (settingsTab !== 'password') e.currentTarget.style.color = '#ffffff'; }}
-                onMouseLeave={(e: any) => { if (settingsTab !== 'password') e.currentTarget.style.color = '#a1a1aa'; }}
-              >
-                <span style={{ display: 'inline-flex', alignItems: 'center', opacity: settingsTab === 'password' ? 1 : 0.7 }}><Icons.Lock /></span>
-                <span>Đổi mật khẩu</span>
+                <span>{t('settings.tabProfile')}</span>
               </button>
 
               {user?.role === 'admin' && (
@@ -1757,7 +1921,7 @@ export default function DashboardPage(): React.JSX.Element {
                   onMouseLeave={(e: any) => { if (settingsTab !== 'invites') e.currentTarget.style.color = '#a1a1aa'; }}
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', opacity: settingsTab === 'invites' ? 1 : 0.7 }}><Icons.Key /></span>
-                  <span>Quản lý mã mời</span>
+                  <span>{t('settings.tabInvites')}</span>
                 </button>
               )}
             </div>
@@ -1803,27 +1967,26 @@ export default function DashboardPage(): React.JSX.Element {
 
               {/* TABS CONTENT */}
 
-              {/* 1. HỒ SƠ CÁ NHÂN (PROFILE) */}
-              {settingsTab === 'profile' && (
-                <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                  <h3 style={{ margin: '0 0 20px 0', fontSize: '17px', color: '#ffffff', fontWeight: '600' }}>Hồ sơ cá nhân</h3>
-                  
-                  <div style={{ display: 'flex', gap: '28px', alignItems: 'stretch', flex: 1 }}>
-                    {/* Cột trái: Profile Card tóm tắt */}
-                    <div style={{
-                      width: '180px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      textAlign: 'center',
-                      paddingRight: '28px',
-                      borderRight: '1px solid rgba(255, 255, 255, 0.06)',
-                      boxSizing: 'border-box',
-                      justifyContent: 'center'
-                    }}>
+              {/* 1. TỔNG QUAN (GENERAL) */}
+              {settingsTab === 'general' && (
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', animation: 'tabSlideIn 0.2s ease-out' }}>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '17px', color: '#ffffff', fontWeight: '600' }}>{t('settings.tabGeneral')}</h3>
+
+                  {/* Greeting & Quick Link card */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '14px 18px',
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    marginBottom: '20px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                       <div style={{
-                        width: '64px',
-                        height: '64px',
+                        width: '42px',
+                        height: '42px',
                         borderRadius: '50%',
                         background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)',
                         color: '#ffffff',
@@ -1831,32 +1994,105 @@ export default function DashboardPage(): React.JSX.Element {
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontWeight: '700',
-                        fontSize: '24px',
-                        boxShadow: '0 4px 14px rgba(79, 70, 229, 0.3)',
-                        marginBottom: '16px'
+                        fontSize: '16px',
+                        boxShadow: '0 4px 10px rgba(79, 70, 229, 0.25)'
                       }}>
                         {user ? user.name.charAt(0).toUpperCase() : 'U'}
                       </div>
-                      <h4 style={{ margin: '0 0 6px 0', fontSize: '15px', fontWeight: '600', color: '#ffffff' }}>{user?.name}</h4>
-                      <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: '#71717a', wordBreak: 'break-all' }}>{user?.email}</p>
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: '600',
-                        padding: '2px 8px',
-                        borderRadius: '99px',
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: '#ffffff' }}>
+                          {t('settings.greeting', { name: user?.name || '' })}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>
+                          {user?.email}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSettingsTab('profile')}
+                      style={{
                         background: 'rgba(255, 255, 255, 0.06)',
-                        color: '#a1a1aa',
-                        border: '1px solid rgba(255, 255, 255, 0.08)'
-                      }}>
-                        {user?.role === 'admin' ? 'Quản trị viên' : 'Thành viên'}
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '6px',
+                        color: '#ffffff',
+                        padding: '6px 12px',
+                        fontSize: '12.5px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e: any) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'; }}
+                      onMouseLeave={(e: any) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'; }}
+                    >
+                      {t('settings.editProfileLink')}
+                    </button>
+                  </div>
+
+                  {/* Settings list styled like the screenshot */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* Row 1: Language */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingBottom: '14px',
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
+                    }}>
+                      <span style={{ fontSize: '13.5px', color: '#e4e4e7', fontWeight: '500' }}>
+                        {t('settings.language')}
                       </span>
+                      <CustomSelect 
+                        value={language}
+                        options={[
+                          { value: 'en', label: 'English' },
+                          { value: 'vi', label: 'Tiếng Việt' }
+                        ]}
+                        onChange={(val) => setLanguage(val as 'vi' | 'en')}
+                      />
                     </div>
 
-                    {/* Cột phải: Form cập nhật */}
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    {/* Row 2: Appearance (Mocked Premium dropdown) */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingBottom: '14px',
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
+                    }}>
+                      <span style={{ fontSize: '13.5px', color: '#e4e4e7', fontWeight: '500' }}>
+                        {t('settings.appearance')}
+                      </span>
+                      <CustomSelect 
+                        value={appearance}
+                        options={[
+                          { value: 'system', label: t('settings.themeSystem') },
+                          { value: 'dark', label: t('settings.themeDark') },
+                          { value: 'light', label: t('settings.themeLight') }
+                        ]}
+                        onChange={(val) => setAppearance(val as 'system' | 'dark' | 'light')}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. HỒ SƠ & BẢO MẬT (PROFILE & SECURITY) */}
+              {settingsTab === 'profile' && (
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', animation: 'tabSlideIn 0.2s ease-out' }}>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '17px', color: '#ffffff', fontWeight: '600' }}>{t('settings.tabProfile')}</h3>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: '28px', flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+                    {/* Cột trái: Cập nhật thông tin profile */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '16px',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+                      paddingRight: '24px'
+                    }}>
                       <form onSubmit={handleUpdateProfile} style={{ display: 'grid', gap: '16px' }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tên hiển thị</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.displayName')}</label>
                           <input 
                             type="text" 
                             value={profileNameInput} 
@@ -1868,7 +2104,7 @@ export default function DashboardPage(): React.JSX.Element {
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Email tài khoản (Bảo mật)</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.emailLabel')}</label>
                           <div style={{
                             width: '100%',
                             padding: '9px 12px',
@@ -1897,16 +2133,16 @@ export default function DashboardPage(): React.JSX.Element {
                           <div style={{
                             padding: '8px 12px',
                             borderRadius: '6px',
-                            backgroundColor: updateProfileMsg.startsWith('Lỗi') ? 'rgba(244, 63, 94, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-                            color: updateProfileMsg.startsWith('Lỗi') ? '#fca5a5' : '#a7f3d0',
+                            backgroundColor: updateProfileMsg.startsWith(t('messages.error')) ? 'rgba(244, 63, 94, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                            color: updateProfileMsg.startsWith(t('messages.error')) ? '#fca5a5' : '#a7f3d0',
                             fontSize: '13px',
-                            border: `1px solid ${updateProfileMsg.startsWith('Lỗi') ? 'rgba(244, 63, 94, 0.12)' : 'rgba(16, 185, 129, 0.12)'}`
+                            border: `1px solid ${updateProfileMsg.startsWith(t('messages.error')) ? 'rgba(244, 63, 94, 0.12)' : 'rgba(16, 185, 129, 0.12)'}`
                           }}>
                             {updateProfileMsg}
                           </div>
                         )}
 
-                        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '2px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                           <button 
                             type="submit"
                             style={{
@@ -1923,46 +2159,17 @@ export default function DashboardPage(): React.JSX.Element {
                             onMouseEnter={(e: any) => { e.target.style.opacity = '0.9'; }}
                             onMouseLeave={(e: any) => { e.target.style.opacity = '1'; }}
                           >
-                            Lưu thay đổi
+                            {t('settings.saveChanges')}
                           </button>
                         </div>
                       </form>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 2. ĐỔI MẬT KHẨU */}
-              {settingsTab === 'password' && (
-                <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                  <h3 style={{ margin: '0 0 20px 0', fontSize: '17px', color: '#ffffff', fontWeight: '600' }}>Bảo mật tài khoản</h3>
-                  
-                  <div style={{ display: 'flex', gap: '28px', alignItems: 'stretch', flex: 1 }}>
-                    {/* Cột trái: Hướng dẫn bảo mật */}
-                    <div style={{
-                      width: '180px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      paddingRight: '28px',
-                      borderRight: '1px solid rgba(255, 255, 255, 0.06)',
-                      boxSizing: 'border-box',
-                      justifyContent: 'center'
-                    }}>
-                      <h4 style={{ margin: '0 0 8px 0', fontSize: '13.5px', fontWeight: '600', color: '#ffffff' }}>Mật khẩu mạnh</h4>
-                      <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: '#71717a', lineHeight: '1.5' }}>
-                        {mustChangePassword ? 'Yêu cầu đổi mật khẩu mặc định/tạm thời để kích hoạt tài khoản của bạn.' : 'Nên định kỳ cập nhật mật khẩu mới để bảo vệ dữ liệu đám mây luôn an toàn.'}
-                      </p>
-                      <div style={{ fontSize: '11.5px', color: '#52525b', lineHeight: '1.4' }}>
-                        * Tối thiểu 8 ký tự<br />
-                        * Gồm chữ hoa, chữ thường, số và ký tự đặc biệt
-                      </div>
-                    </div>
 
                     {/* Cột phải: Form đổi mật khẩu */}
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <form onSubmit={handleChangePassword} style={{ display: 'grid', gap: '12px' }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Mật khẩu hiện tại</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.oldPassword')}</label>
                           <input 
                             type="password" 
                             value={oldPassword} 
@@ -1974,7 +2181,7 @@ export default function DashboardPage(): React.JSX.Element {
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Mật khẩu mới</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.newPassword')}</label>
                           <input 
                             type="password" 
                             value={newPassword} 
@@ -1986,7 +2193,7 @@ export default function DashboardPage(): React.JSX.Element {
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Xác nhận mật khẩu mới</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.confirmPassword')}</label>
                           <input 
                             type="password" 
                             value={confirmPassword} 
@@ -1997,17 +2204,18 @@ export default function DashboardPage(): React.JSX.Element {
                             onBlur={(e: any) => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
                           />
                         </div>
-                        
+
                         {changePasswordMsg && (
-                          <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: 'rgba(244, 63, 94, 0.08)', color: '#fca5a5', fontSize: '13px', border: '1px solid rgba(244, 63, 94, 0.12)' }}>
+                          <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: 'rgba(244, 63, 94, 0.08)', color: '#fca5a5', fontSize: '12.5px', border: '1px solid rgba(244, 63, 94, 0.12)' }}>
                             {changePasswordMsg}
                           </div>
                         )}
 
-                        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '4px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
                           <button 
                             type="submit"
                             style={{
+                              width: '100%',
                               padding: '9px 18px',
                               borderRadius: '6px',
                               border: 0,
@@ -2015,14 +2223,18 @@ export default function DashboardPage(): React.JSX.Element {
                               color: '#000000',
                               fontWeight: '600',
                               cursor: 'pointer',
-                              fontSize: '13px',
+                              fontSize: '13.5px',
                               transition: 'opacity 0.15s ease',
                             }}
                             onMouseEnter={(e: any) => { e.target.style.opacity = '0.9'; }}
                             onMouseLeave={(e: any) => { e.target.style.opacity = '1'; }}
                           >
-                            Cập nhật mật khẩu
+                            {t('settings.changePassword')}
                           </button>
+                          
+                          <div style={{ fontSize: '9.5px', color: '#71717a', lineHeight: '1.3', marginTop: '4px' }}>
+                            {t('settings.strongPassword')}: {t('settings.strongPasswordRequirement1')} &middot; {t('settings.strongPasswordRequirement2')}
+                          </div>
                         </div>
                       </form>
                     </div>
@@ -2032,8 +2244,8 @@ export default function DashboardPage(): React.JSX.Element {
 
               {/* 3. QUẢN LÝ MÃ MỜI (ADMIN ONLY) */}
               {settingsTab === 'invites' && user?.role === 'admin' && (
-                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'visible' }}>
-                  <h3 style={{ margin: '0 0 16px 0', fontSize: '17px', color: '#ffffff', fontWeight: '600' }}>Quản lý mã mời đăng ký</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'visible', animation: 'tabSlideIn 0.2s ease-out' }}>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '17px', color: '#ffffff', fontWeight: '600' }}>{t('invite.title')}</h3>
                   
                   <div style={{ display: 'flex', gap: '24px', alignItems: 'stretch', flex: 1, overflow: 'visible' }}>
                     {/* Cột trái: Form tạo mã mời (Xếp dọc gọn gàng) */}
@@ -2046,10 +2258,10 @@ export default function DashboardPage(): React.JSX.Element {
                       boxSizing: 'border-box',
                       justifyContent: 'center'
                     }}>
-                      <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: '600', color: '#ffffff' }}>Tạo mã mời mới</h4>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: '600', color: '#ffffff' }}>{t('invite.createTitle')}</h4>
                       <form onSubmit={handleCreateInvitation} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Số lượt dùng</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('invite.maxUses')}</label>
                           <input 
                             type="number" 
                             min="1" 
@@ -2063,7 +2275,7 @@ export default function DashboardPage(): React.JSX.Element {
                         </div>
 
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Hạn dùng</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('invite.expiry')}</label>
                           <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
                             <button 
                               type="button" 
@@ -2081,7 +2293,7 @@ export default function DashboardPage(): React.JSX.Element {
                                 transition: 'all 0.15s ease'
                               }}
                             >
-                              Theo giờ
+                              {t('invite.byHour')}
                             </button>
                             <button 
                               type="button" 
@@ -2099,7 +2311,7 @@ export default function DashboardPage(): React.JSX.Element {
                                 transition: 'all 0.15s ease'
                               }}
                             >
-                              Theo ngày
+                              {t('invite.byDay')}
                             </button>
                           </div>
                           
@@ -2107,7 +2319,7 @@ export default function DashboardPage(): React.JSX.Element {
                             <input 
                               type="number" 
                               min="1" 
-                              placeholder="Không hết hạn"
+                              placeholder={t('invite.noExpiry')}
                               value={expiresInHoursInput} 
                               onChange={(e) => setExpiresInHoursInput(e.target.value)} 
                               style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '7px 10px', color: '#ffffff', fontSize: '13px', outline: 'none', transition: 'all 0.15s ease', boxSizing: 'border-box' }}
@@ -2120,9 +2332,10 @@ export default function DashboardPage(): React.JSX.Element {
                                 value={expiresDateInput} 
                                 onChange={setExpiresDateInput} 
                                 minDate={todayStr}
+                                lang={language}
                               />
                               <span style={{ display: 'block', fontSize: '9px', color: '#71717a', marginTop: '5px', lineHeight: '1.4' }}>
-                                * Hết hạn vào lúc 23:59:59 của ngày được chọn.
+                                {t('invite.expiryDateHint')}
                               </span>
                             </div>
                           )}
@@ -2145,17 +2358,17 @@ export default function DashboardPage(): React.JSX.Element {
                           onMouseEnter={(e: any) => { e.target.style.opacity = '0.9'; }}
                           onMouseLeave={(e: any) => { e.target.style.opacity = '1'; }}
                         >
-                          Tạo mã mời
+                          {t('invite.createBtn')}
                         </button>
 
                         {createInviteMsg && (
                           <div style={{
                             fontSize: '11.5px',
-                            color: createInviteMsg.startsWith('Lỗi') ? '#fca5a5' : '#a7f3d0',
+                            color: createInviteMsg.startsWith(t('messages.error')) ? '#fca5a5' : '#a7f3d0',
                             padding: '6px 10px',
                             borderRadius: '6px',
-                            background: createInviteMsg.startsWith('Lỗi') ? 'rgba(244, 63, 94, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-                            border: `1px solid ${createInviteMsg.startsWith('Lỗi') ? 'rgba(244, 63, 94, 0.12)' : 'rgba(16, 185, 129, 0.12)'}`,
+                            background: createInviteMsg.startsWith(t('messages.error')) ? 'rgba(244, 63, 94, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                            border: `1px solid ${createInviteMsg.startsWith(t('messages.error')) ? 'rgba(244, 63, 94, 0.12)' : 'rgba(16, 185, 129, 0.12)'}`,
                             wordBreak: 'break-word'
                           }}>
                             {createInviteMsg}
@@ -2166,7 +2379,7 @@ export default function DashboardPage(): React.JSX.Element {
 
                     {/* Cột phải: Danh sách mã mời */}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                      <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: '600', color: '#ffffff' }}>Danh sách mã mời đã tạo</h4>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: '600', color: '#ffffff' }}>{t('invite.listTitle')}</h4>
                       <div style={{
                         flex: 1,
                         border: '1px solid rgba(255, 255, 255, 0.06)',
@@ -2176,17 +2389,17 @@ export default function DashboardPage(): React.JSX.Element {
                       }}>
                         {invitations.length === 0 ? (
                           <div style={{ padding: '24px', textAlign: 'center', color: '#71717a', fontSize: '12.5px' }}>
-                            Chưa có mã mời nào được tạo.
+                            {t('invite.emptyList')}
                           </div>
                         ) : (
                           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px', color: '#e4e4e7' }}>
                             <thead>
                               <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a' }}>Mã</th>
-                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a' }}>Dùng</th>
-                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a' }}>Hạn dùng</th>
-                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a' }}>Trạng thái</th>
-                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a', textAlign: 'right' }}>Hành động</th>
+                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a' }}>{t('invite.colCode')}</th>
+                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a' }}>{t('invite.colUses')}</th>
+                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a' }}>{t('invite.colExpiry')}</th>
+                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a' }}>{t('invite.colStatus')}</th>
+                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a', textAlign: 'right' }}>{t('invite.colAction')}</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -2199,12 +2412,12 @@ export default function DashboardPage(): React.JSX.Element {
                                       onClick={() => {
                                         if (isActive) {
                                           navigator.clipboard.writeText(inv.token);
-                                          showToast(`Đã sao chép mã ${inv.token} vào clipboard!`);
+                                          showToast(t('invite.copySuccess', { token: inv.token }));
                                         } else {
-                                          showToast('Mã đã khóa, không thể sử dụng tiếp vui lòng tạo cái mới!');
+                                          showToast(t('invite.copyLocked'));
                                         }
                                       }}
-                                      title={isActive ? "Click để sao chép mã" : "Mã đã khóa, không thể sử dụng"}
+                                      title={isActive ? t('invite.titleCopyActive') : t('invite.titleCopyLocked')}
                                       style={{ 
                                         padding: '8px 10px', 
                                         fontWeight: '700', 
@@ -2222,13 +2435,13 @@ export default function DashboardPage(): React.JSX.Element {
                                     </td>
                                     <td style={{ padding: '8px 10px' }}>{inv.uses_count}/{inv.max_uses || '∞'}</td>
                                     <td style={{ padding: '8px 10px', color: '#71717a' }}>
-                                      {inv.expires_at ? new Date(inv.expires_at).toLocaleDateString('vi-VN') : 'Vô hạn'}
+                                      {inv.expires_at ? new Date(inv.expires_at).toLocaleDateString('vi-VN') : t('invite.noExpiry')}
                                     </td>
                                     <td style={{ padding: '8px 10px' }}>
                                       {isActive ? (
-                                        <span style={{ color: '#10b981', background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.1)', padding: '1px 6px', borderRadius: '99px', fontSize: '10px', fontWeight: '600' }}>Chạy</span>
+                                        <span style={{ color: '#10b981', background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.1)', padding: '1px 6px', borderRadius: '99px', fontSize: '10px', fontWeight: '600' }}>{t('invite.statusActive')}</span>
                                       ) : (
-                                        <span style={{ color: '#f43f5e', background: 'rgba(244, 63, 94, 0.06)', border: '1px solid rgba(244, 63, 94, 0.1)', padding: '1px 6px', borderRadius: '99px', fontSize: '10px', fontWeight: '600' }}>Khóa</span>
+                                        <span style={{ color: '#f43f5e', background: 'rgba(244, 63, 94, 0.06)', border: '1px solid rgba(244, 63, 94, 0.1)', padding: '1px 6px', borderRadius: '99px', fontSize: '10px', fontWeight: '600' }}>{t('invite.statusLocked')}</span>
                                       )}
                                     </td>
                                     <td style={{ padding: '8px 10px', textAlign: 'right' }}>
@@ -2249,7 +2462,7 @@ export default function DashboardPage(): React.JSX.Element {
                                           onMouseEnter={(e: any) => { e.target.style.background = 'rgba(244, 63, 94, 0.06)'; e.target.style.borderColor = '#f43f5e'; }}
                                           onMouseLeave={(e: any) => { e.target.style.background = 'transparent'; e.target.style.borderColor = 'rgba(244, 63, 94, 0.25)'; }}
                                         >
-                                          Khóa
+                                          {t('invite.actionLock')}
                                         </button>
                                       )}
                                     </td>
@@ -2296,22 +2509,22 @@ export default function DashboardPage(): React.JSX.Element {
             fontFamily: 'sans-serif',
             textAlign: 'center'
           }}>
-            <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 18, color: '#fff' }}>Đăng xuất thiết bị khác?</h3>
+            <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 18, color: '#fff' }}>{t('dialogs.logoutOthersTitle')}</h3>
             <p style={{ fontSize: 14, color: '#a1a1aa', lineHeight: '1.5', marginBottom: 20 }}>
-              Mật khẩu của bạn đã được thay đổi. Bạn có muốn đăng xuất khỏi tất cả các thiết bị khác để bảo mật tối đa tài khoản không?
+              {t('dialogs.logoutOthersText')}
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
               <button 
                 onClick={() => handleLogoutOthers(false)}
                 style={{ padding: '10px 20px', borderRadius: '6px', border: '1px solid #3f3f46', backgroundColor: 'transparent', color: '#fff', cursor: 'pointer' }}
               >
-                Không, giữ nguyên
+                {t('dialogs.logoutOthersNo')}
               </button>
               <button 
                 onClick={() => handleLogoutOthers(true)}
                 style={{ padding: '10px 20px', borderRadius: '6px', border: 0, backgroundColor: '#dc2626', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
               >
-                Có, đăng xuất hết
+                {t('dialogs.logoutOthersYes')}
               </button>
             </div>
           </div>
@@ -2666,6 +2879,37 @@ export default function DashboardPage(): React.JSX.Element {
         }
         .popoverItem:hover .popoverIcon {
           color: #fff;
+        }
+        .popoverLangSelect {
+          display: flex;
+          gap: 6px;
+          width: 100%;
+          padding: 8px 12px 2px 12px;
+          box-sizing: border-box;
+          justify-content: center;
+        }
+        .popoverLangBtn {
+          flex: 1;
+          background: transparent;
+          border: 1px solid #27272a;
+          color: #a1a1aa;
+          font-size: 11px;
+          font-weight: 700;
+          padding: 5px 0;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          text-align: center;
+        }
+        .popoverLangBtn:hover {
+          color: #ffffff;
+          border-color: #52525b;
+          background: rgba(255, 255, 255, 0.02);
+        }
+        .popoverLangBtn.active {
+          background: rgba(255, 255, 255, 0.08);
+          color: #ffffff;
+          border-color: rgba(255, 255, 255, 0.15);
         }
         .storageCard .label {
           font-size: 11px;

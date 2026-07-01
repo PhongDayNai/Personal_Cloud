@@ -372,7 +372,7 @@ export default function CustomDatePicker({
           {viewMode === "months" && (
             <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "6px" }}>
-                <span style={{ fontSize: "11px", fontWeight: "700", color: "#71717a", textTransform: "uppercase" }}>Chọn Tháng</span>
+                <span style={{ fontSize: "11px", fontWeight: "700", color: "#71717a", textTransform: "uppercase" }}>{lang === "vi" ? "Chọn Tháng" : "Select Month"}</span>
                 <button
                   type="button"
                   onClick={() => setViewMode("years")}
@@ -414,13 +414,13 @@ export default function CustomDatePicker({
           {viewMode === "years" && (
             <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "6px" }}>
-                <span style={{ fontSize: "11px", fontWeight: "700", color: "#71717a", textTransform: "uppercase" }}>Chọn Năm</span>
+                <span style={{ fontSize: "11px", fontWeight: "700", color: "#71717a", textTransform: "uppercase" }}>{lang === "vi" ? "Chọn Năm" : "Select Year"}</span>
                 <button
                   type="button"
                   onClick={() => setViewMode(onlyMonth ? "months" : "days")}
                   style={{ background: "transparent", border: 0, color: "#3b82f6", fontWeight: "700", fontSize: "11px", cursor: "pointer" }}
                 >
-                  Quay lại
+                  {lang === "vi" ? "Quay lại" : "Back"}
                 </button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "4px", maxHeight: "150px", overflowY: "auto", paddingRight: "4px" }}>

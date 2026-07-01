@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useLanguage } from '../../context/LanguageContext';
 
 function getApiOrigin(): string {
   return process.env.NEXT_PUBLIC_API_ORIGIN || 'http://localhost:45174';
@@ -34,6 +35,7 @@ const Icons = {
 };
 
 export default function LoginPage(): React.JSX.Element {
+  const { language, setLanguage, t } = useLanguage();
   const [isLogin, setIsLogin] = useState<boolean>(true);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -68,7 +70,7 @@ export default function LoginPage(): React.JSX.Element {
 
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 15000);
+      const tSig = setTimeout(() => ctrl.abort(), 15000);
 
       const res = await fetch(`${getApiOrigin()}${endpoint}`, {
         method: 'POST',
@@ -78,11 +80,11 @@ export default function LoginPage(): React.JSX.Element {
         signal: ctrl.signal,
       });
 
-      clearTimeout(t);
+      clearTimeout(tSig);
       setIsLoading(false);
 
       if (res.ok) {
-        setMsg(isLogin ? 'Đăng nhập thành công, đang chuyển hướng...' : 'Đăng ký thành công! Đang tự động đăng nhập...');
+        setMsg(isLogin ? t('messages.loginSuccess') : t('messages.registerSuccess'));
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 1000);
@@ -90,19 +92,37 @@ export default function LoginPage(): React.JSX.Element {
       }
 
       const data = await res.json().catch(() => ({}));
-      setMsg(`Lỗi: ${data.message || (isLogin ? 'Không đăng nhập được' : 'Không đăng ký được')}`);
+      setMsg(data.message ? `${t('messages.error')}: ${data.message}` : t(isLogin ? 'messages.loginFailed' : 'messages.registerFailed'));
     } catch (err: any) {
       setIsLoading(false);
       if (err?.name === 'AbortError') {
-        setMsg('Lỗi: Hết thời gian chờ kết nối API (15 giây).');
+        setMsg(t('messages.timeout'));
       } else {
-        setMsg(`Lỗi: ${err?.message || 'Không kết nối được API server'}`);
+        setMsg(err?.message ? `${t('messages.error')}: ${err.message}` : t('messages.connectionError'));
       }
     }
   }
 
   return (
     <div className="container">
+      {/* Floating Language Switcher */}
+      <div className="lang-switcher">
+        <button 
+          type="button"
+          onClick={() => setLanguage('vi')} 
+          className={`lang-btn ${language === 'vi' ? 'active' : ''}`}
+        >
+          VI
+        </button>
+        <button 
+          type="button"
+          onClick={() => setLanguage('en')} 
+          className={`lang-btn ${language === 'en' ? 'active' : ''}`}
+        >
+          EN
+        </button>
+      </div>
+
       {/* Dynamic Background Glows */}
       <div className="glow glow-1" />
       <div className="glow glow-2" />
@@ -125,22 +145,22 @@ export default function LoginPage(): React.JSX.Element {
         </div>
 
         <h2 className="title">
-          {isLogin ? 'Đăng nhập hệ thống' : 'Tạo tài khoản mới'}
+          {isLogin ? t('login.title') : t('register.title')}
         </h2>
         <p className="subtitle">
-          {isLogin ? 'Chào mừng bạn quay lại với không gian lưu trữ riêng tư' : 'Nhận không gian lưu trữ và cộng tác an toàn'}
+          {isLogin ? t('login.subtitle') : t('register.subtitle')}
         </p>
 
         <form onSubmit={onSubmit} className="form">
           {!isLogin && (
             <div className="input-group">
-              <label className="label">Tên hiển thị</label>
+              <label className="label">{t('fields.name')}</label>
               <div className="input-wrapper">
                 <span className="input-icon"><Icons.User /></span>
                 <input 
                   value={name} 
                   onChange={(e) => setName(e.target.value)} 
-                  placeholder="Ví dụ: Nguyễn Văn A" 
+                  placeholder={t('placeholders.name')} 
                   required
                   className="input"
                 />
@@ -149,13 +169,13 @@ export default function LoginPage(): React.JSX.Element {
           )}
           
           <div className="input-group">
-            <label className="label">Tài khoản / Email</label>
+            <label className="label">{t('fields.email')}</label>
             <div className="input-wrapper">
               <span className="input-icon"><Icons.Mail /></span>
               <input 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)} 
-                placeholder="Nhập email hoặc tên tài khoản" 
+                placeholder={t('placeholders.email')} 
                 type="text"
                 required
                 className="input"
@@ -164,13 +184,13 @@ export default function LoginPage(): React.JSX.Element {
           </div>
           
           <div className="input-group">
-            <label className="label">Mật khẩu</label>
+            <label className="label">{t('fields.password')}</label>
             <div className="input-wrapper">
               <span className="input-icon"><Icons.Lock /></span>
               <input 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
-                placeholder="••••••••" 
+                placeholder={t('placeholders.password')} 
                 type="password" 
                 required
                 className="input"
@@ -180,13 +200,13 @@ export default function LoginPage(): React.JSX.Element {
           
           {!isLogin && (
             <div className="input-group">
-              <label className="label">Mã mời đăng ký</label>
+              <label className="label">{t('fields.inviteCode')}</label>
               <div className="input-wrapper">
                 <span className="input-icon"><Icons.Key /></span>
                 <input 
                   value={inviteCode} 
                   onChange={(e) => setInviteCode(e.target.value)} 
-                  placeholder="Mã 6 ký tự (Ví dụ: AB12CD)" 
+                  placeholder={t('placeholders.inviteCode')} 
                   maxLength={6}
                   required
                   className="input invite-input"
@@ -201,38 +221,38 @@ export default function LoginPage(): React.JSX.Element {
           >
             {isLoading ? (
               <span className="spinner-container">
-                <span className="spinner" /> Đang xử lý...
+                <span className="spinner" /> {t('buttons.processing')}
               </span>
-            ) : (isLogin ? 'Đăng nhập' : 'Đăng ký tài khoản')}
+            ) : (isLogin ? t('buttons.login') : t('buttons.register'))}
           </button>
         </form>
 
         <div className="toggle-container">
           {isLogin ? (
             <p>
-              Chưa có tài khoản?{' '}
+              {t('toggle.noAccount')}{' '}
               <span 
                 onClick={() => { setIsLogin(false); setMsg(''); }} 
                 className="toggle-link"
               >
-                Đăng ký ngay
+                {t('toggle.registerNow')}
               </span>
             </p>
           ) : (
             <p>
-              Đã có tài khoản?{' '}
+              {t('toggle.hasAccount')}{' '}
               <span 
                 onClick={() => { setIsLogin(true); setMsg(''); }} 
                 className="toggle-link"
               >
-                Đăng nhập
+                {t('toggle.loginNow')}
               </span>
             </p>
           )}
         </div>
 
         {msg && (
-          <div className={`message ${msg.startsWith('Lỗi') ? 'error-msg' : 'success-msg'}`}>
+          <div className={`message ${msg.startsWith(t('messages.error')) ? 'error-msg' : 'success-msg'}`}>
             {msg}
           </div>
         )}
@@ -250,6 +270,40 @@ export default function LoginPage(): React.JSX.Element {
           font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
           padding: 24px;
           box-sizing: border-box;
+        }
+
+        .lang-switcher {
+          position: absolute;
+          top: 24px;
+          right: 24px;
+          display: flex;
+          gap: 4px;
+          background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          padding: 4px;
+          z-index: 100;
+        }
+        .lang-btn {
+          background: transparent;
+          border: none;
+          color: #a1a1aa;
+          font-size: 11.5px;
+          font-weight: 700;
+          padding: 6px 12px;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .lang-btn:hover {
+          color: #ffffff;
+        }
+        .lang-btn.active {
+          background: rgba(255, 255, 255, 0.1);
+          color: #ffffff;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         /* Decorative Glow Circles */

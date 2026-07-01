@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 function getApiOrigin(): string {
   return process.env.NEXT_PUBLIC_API_ORIGIN || 'http://localhost:45174';
 }
 
 export default function Home(): React.JSX.Element {
+  const { t } = useLanguage();
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -26,7 +29,7 @@ export default function Home(): React.JSX.Element {
   return (
     <main style={{ maxWidth: 800, margin: '80px auto', padding: 16 }}>
       <h1 style={{ fontSize: 36, marginBottom: 8 }}>AetherCloud</h1>
-      <p style={{ opacity: 0.9 }}>Đang kiểm tra phiên đăng nhập...</p>
+      <p style={{ opacity: 0.9 }}>{t('app.loading')}</p>
     </main>
   );
 }
