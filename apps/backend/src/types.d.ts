@@ -12,6 +12,7 @@ declare global {
         mustChangePassword: boolean;
       };
       asset?: Asset;
+      space?: any;
     }
   }
 }

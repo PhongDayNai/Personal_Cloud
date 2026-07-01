@@ -35,12 +35,12 @@ async function migrate() {
 
   const queryText = `
     INSERT INTO assets (
-      id, original_name, mime, size, owner, uploaded_at, taken_at, rel_path,
+      id, original_name, mime, size, owner, owner_id, group_id, uploaded_at, taken_at, rel_path,
       play_rel_path, hls_rel_path, processing_status, processing_started_at,
       processing_finished_at, ext, album_name, album_names, doc_project_name,
       doc_project_names, tags, is_deleted, deleted_at, type
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
     ) ON CONFLICT (id) DO NOTHING
   `;
 
@@ -48,6 +48,9 @@ async function migrate() {
 
   const client = await pool.connect();
   try {
+    const adminRes = await client.query("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+    const adminId = adminRes.rows[0]?.id || null;
+
     await client.query('BEGIN');
     for (const item of items) {
       const values = [
@@ -56,6 +59,8 @@ async function migrate() {
         item.mime,
         Number(item.size || 0),
         item.owner || 'admin',
+        adminId,
+        null,
         item.uploadedAt || new Date().toISOString(),
         item.takenAt || item.uploadedAt || new Date().toISOString(),
         item.relPath,

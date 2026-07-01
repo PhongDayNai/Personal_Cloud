@@ -61,6 +61,17 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='avatar_url') THEN
     ALTER TABLE users ADD COLUMN avatar_url VARCHAR(1000);
   END IF;
+
+  -- Phase 2 migrations for assets
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='assets' AND column_name='owner_id') THEN
+    ALTER TABLE assets ADD COLUMN owner_id UUID REFERENCES users(id) ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='assets' AND column_name='group_id') THEN
+    ALTER TABLE assets ADD COLUMN group_id UUID;
+  END IF;
+  
+  -- Cho phép owner có thể NULL
+  ALTER TABLE assets ALTER COLUMN owner DROP NOT NULL;
 END $$;
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -78,7 +89,9 @@ CREATE TABLE IF NOT EXISTS assets (
   original_name VARCHAR(500) NOT NULL,
   mime VARCHAR(100) NOT NULL,
   size BIGINT NOT NULL,
-  owner VARCHAR(100) NOT NULL,
+  owner VARCHAR(100),
+  owner_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  group_id UUID,
   uploaded_at TIMESTAMPTZ NOT NULL,
   taken_at TIMESTAMPTZ NOT NULL,
   rel_path VARCHAR(1000) NOT NULL,
@@ -101,7 +114,40 @@ CREATE TABLE IF NOT EXISTS assets (
 CREATE INDEX IF NOT EXISTS idx_assets_taken_at ON assets (taken_at DESC);
 CREATE INDEX IF NOT EXISTS idx_assets_is_deleted ON assets (is_deleted);
 CREATE INDEX IF NOT EXISTS idx_assets_type ON assets (type);
+CREATE INDEX IF NOT EXISTS idx_assets_owner_id ON assets (owner_id);
+
+-- Tạo bảng Không gian con (Spaces)
+CREATE TABLE IF NOT EXISTS spaces (
+  id UUID PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  type VARCHAR(50) NOT NULL, -- 'journal' | 'collection' | 'project'
+  owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  group_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_spaces_owner ON spaces(owner_id);
+
+-- Tạo bảng Bài viết (Posts) trong Không gian con
+CREATE TABLE IF NOT EXISTS posts (
+  id UUID PRIMARY KEY,
+  space_id UUID NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  caption TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_posts_space ON posts(space_id);
+
+-- Bảng trung gian liên kết Bài viết và Tệp tin (Post & Assets)
+CREATE TABLE IF NOT EXISTS post_assets (
+  post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+  PRIMARY KEY (post_id, asset_id)
+);
 `;
+
 
 async function seedAdmin() {
   try {
