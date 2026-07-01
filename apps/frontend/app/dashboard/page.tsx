@@ -2232,7 +2232,7 @@ export default function DashboardPage(): React.JSX.Element {
                                       )}
                                     </td>
                                     <td style={{ padding: '8px 10px', textAlign: 'right' }}>
-                                      {inv.is_active && (
+                                      {isActive && (
                                         <button 
                                           onClick={() => handleDeactivateInvitation(inv.id)}
                                           style={{
