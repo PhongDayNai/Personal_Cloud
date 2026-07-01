@@ -196,7 +196,8 @@ export default function CloudLayoutWrapper({ children }: { children: React.React
         .shell {
           display: grid;
           grid-template-columns: 260px 1fr;
-          min-height: 100vh;
+          height: 100vh;
+          overflow: hidden;
           background: var(--bg-page);
           color: var(--text-primary);
           transition: background 0.25s ease, color 0.25s ease;
@@ -205,6 +206,7 @@ export default function CloudLayoutWrapper({ children }: { children: React.React
           padding: 24px 32px 40px;
           box-sizing: border-box;
           overflow-y: auto;
+          height: 100vh;
         }
         .info {
           color: #60a5fa;
