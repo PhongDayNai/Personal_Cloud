@@ -93,7 +93,10 @@ export default function DocView({
 
       {selectedDocProject !== 'all' && (
         <div className="docFilters">
-          <span className="chip active">📂 {t('sidebar.docProjectsTitle') || 'Tập tài liệu'}: {selectedDocProject}</span>
+          <span className="chip active" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <Icons.Project size={14} />
+            <span>{t('sidebar.docProjectsTitle') || 'Tập tài liệu'}: {selectedDocProject}</span>
+          </span>
         </div>
       )}
 

@@ -518,7 +518,10 @@ export default function DashboardPage(): React.JSX.Element {
         <>
           <div className="pageHeader">
             <h1>{activeWorkspace.name}</h1>
-            <p>📁 {t('spaces.project') || 'Không gian Dự án'} · {t('spaces.projectDesc') || 'Quản lý tài liệu dự án'}</p>
+            <p style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Icons.Project size={14} />
+              <span>{t('spaces.project') || 'Không gian Dự án'} · {t('spaces.projectDesc') || 'Quản lý tài liệu dự án'}</span>
+            </p>
           </div>
           <DocView
             docTypeFilter={docTypeFilter}
@@ -543,10 +546,18 @@ export default function DashboardPage(): React.JSX.Element {
         <div className="spaceTimelineView">
           <div className="pageHeader">
             <h1>{activeWorkspace.name}</h1>
-            <p>
-              {activeWorkspace.spaceType === 'journal' 
-                ? `📓 ${t('spaces.journal') || 'Không gian Nhật ký'} · ${t('spaces.journalDesc') || 'Ghi chép câu chuyện'}`
-                : `📦 ${t('spaces.collection') || 'Không gian Bộ sưu tập'} · ${t('spaces.collectionDesc') || 'Lưu trữ file'}`}
+            <p style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              {activeWorkspace.spaceType === 'journal' ? (
+                <>
+                  <Icons.Journal size={14} />
+                  <span>{t('spaces.journal') || 'Không gian Nhật ký'} · {t('spaces.journalDesc') || 'Ghi chép câu chuyện'}</span>
+                </>
+              ) : (
+                <>
+                  <Icons.Collection size={14} />
+                  <span>{t('spaces.collection') || 'Không gian Bộ sưu tập'} · {t('spaces.collectionDesc') || 'Lưu trữ file'}</span>
+                </>
+              )}
             </p>
           </div>
           <div className="postComposer">
@@ -557,8 +568,9 @@ export default function DashboardPage(): React.JSX.Element {
               onChange={(e) => setPostCaption(e.target.value)}
             />
             <div className="composerActions">
-              <label htmlFor="space-file-upload" className="attachBtn">
-                📎 Đính kèm tệp tin ({postFiles.length})
+              <label htmlFor="space-file-upload" className="attachBtn" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                <span>{t('actions.attachFiles') || 'Đính kèm tệp tin'} ({postFiles.length})</span>
               </label>
               <input 
                 type="file" 
@@ -575,7 +587,10 @@ export default function DashboardPage(): React.JSX.Element {
               <div className="attachedFiles">
                 {postFiles.map((f, i) => (
                   <div key={i} className="attachedFileChip">
-                    <span>📄 {f.name} ({fmtBytes(f.size)})</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Icons.AllFiles size={12} style={{ color: 'var(--text-muted)' }} />
+                      <span>{f.name} ({fmtBytes(f.size)})</span>
+                    </span>
                     <button className="removeFileBtn" onClick={() => setPostFiles(prev => prev.filter((_, idx) => idx !== i))}>×</button>
                   </div>
                 ))}

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import * as Icons from './Icons';
 
 interface CreateSpaceModalProps {
   isOpen: boolean;
@@ -75,7 +76,7 @@ export default function CreateSpaceModal({
                 className={`typeOption ${type === 'journal' ? 'active' : ''}`}
                 onClick={() => !loading && setType('journal')}
               >
-                <div className="optionIcon">📓</div>
+                <div className="optionIcon"><Icons.Journal size={20} /></div>
                 <div className="optionMeta">
                   <div className="optionTitle">{t('spaces.journal') || 'Nhật ký'}</div>
                   <div className="optionDesc">{t('spaces.journalDesc') || 'Ghi chép câu chuyện, viết nhật ký kèm tệp đính kèm.'}</div>
@@ -86,7 +87,7 @@ export default function CreateSpaceModal({
                 className={`typeOption ${type === 'collection' ? 'active' : ''}`}
                 onClick={() => !loading && setType('collection')}
               >
-                <div className="optionIcon">📦</div>
+                <div className="optionIcon"><Icons.Collection size={20} /></div>
                 <div className="optionMeta">
                   <div className="optionTitle">{t('spaces.collection') || 'Bộ sưu tập'}</div>
                   <div className="optionDesc">{t('spaces.collectionDesc') || 'Lưu trữ tệp tin đa phương tiện và file tài liệu chung.'}</div>
@@ -97,7 +98,7 @@ export default function CreateSpaceModal({
                 className={`typeOption ${type === 'project' ? 'active' : ''}`}
                 onClick={() => !loading && setType('project')}
               >
-                <div className="optionIcon">📂</div>
+                <div className="optionIcon"><Icons.Project size={20} /></div>
                 <div className="optionMeta">
                   <div className="optionTitle">{t('spaces.project') || 'Dự án'}</div>
                   <div className="optionDesc">{t('spaces.projectDesc') || 'Quản lý file tài liệu dự án trực quan theo thư mục.'}</div>
