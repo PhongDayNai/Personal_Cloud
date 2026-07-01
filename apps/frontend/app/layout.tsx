@@ -90,6 +90,10 @@ export default function RootLayout({ children }: RootLayoutProps): React.JSX.Ele
               --bg-modal-wrapper: rgba(20, 20, 25, 0.9);
               --bg-modal-content: rgba(10, 10, 12, 0.45);
               --modal-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8);
+              
+              --scrollbar-track: rgba(255, 255, 255, 0.01);
+              --scrollbar-thumb: rgba(255, 255, 255, 0.12);
+              --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
             }
 
             [data-theme='light'] {
@@ -142,6 +146,10 @@ export default function RootLayout({ children }: RootLayoutProps): React.JSX.Ele
               --bg-modal-wrapper: hsla(36, 40%, 97%, 0.95);
               --bg-modal-content: hsla(0, 0%, 100%, 0.45);
               --modal-shadow: var(--card-shadow-hover);
+              
+              --scrollbar-track: rgba(28, 12, 8, 0.02);
+              --scrollbar-thumb: rgba(28, 12, 8, 0.15);
+              --scrollbar-thumb-hover: rgba(28, 12, 8, 0.3);
             }
 
             body {
@@ -165,6 +173,31 @@ export default function RootLayout({ children }: RootLayoutProps): React.JSX.Ele
                 linear-gradient(135deg, hsl(36, 40%, 96%) 0%, hsl(20, 25%, 93%) 100%);
               background-size: 32px 32px, 32px 32px, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
               background-attachment: fixed;
+            }
+
+            /* Custom Scrollbar Global */
+            * {
+              scrollbar-width: thin;
+              scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+            }
+            ::-webkit-scrollbar {
+              width: 8px;
+              height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+              background: var(--scrollbar-track);
+              border-radius: 99px;
+            }
+            ::-webkit-scrollbar-thumb {
+              background: var(--scrollbar-thumb);
+              border-radius: 99px;
+              border: 2px solid transparent;
+              background-clip: padding-box;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+              background: var(--scrollbar-thumb-hover);
+              border: 2px solid transparent;
+              background-clip: padding-box;
             }
           `
         }} />
