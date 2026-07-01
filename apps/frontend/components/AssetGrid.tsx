@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { Asset } from '../types';
+import { DocIcon, ChevronRight } from './Icons';
+
 
 interface AssetGridProps {
   groupByTimeEnabled: boolean;
@@ -48,7 +50,7 @@ export default function AssetGrid({
           <div key={group} className="monthBlock">
             {groupByTimeEnabled && (
               <button className="groupHeader" onClick={() => toggleGroup(group)}>
-                <span className={`groupHeaderChevron ${isOpen ? 'open' : ''}`}>▸</span>
+                <ChevronRight size={14} className={`groupHeaderChevron ${isOpen ? 'open' : ''}`} />
                 <span>{group}</span>
                 <span className="groupCount">{items.length}</span>
               </button>
@@ -76,14 +78,7 @@ export default function AssetGrid({
                           )
                         ) : (
                           <div className="filePlaceholder">
-                            <span className="fileIcon">
-                              {a.originalName.toLowerCase().endsWith('.pdf') ? '📕' 
-                               : a.originalName.toLowerCase().endsWith('.zip') || a.originalName.toLowerCase().endsWith('.rar') || a.originalName.toLowerCase().endsWith('.tar') || a.originalName.toLowerCase().endsWith('.gz') ? '📦'
-                               : a.originalName.toLowerCase().endsWith('.docx') || a.originalName.toLowerCase().endsWith('.doc') ? '📝'
-                               : a.originalName.toLowerCase().endsWith('.xlsx') || a.originalName.toLowerCase().endsWith('.xls') || a.originalName.toLowerCase().endsWith('.csv') ? '📊'
-                               : a.originalName.toLowerCase().endsWith('.md') ? '🔤'
-                               : '📄'}
-                            </span>
+                            <DocIcon item={a} size={48} />
                             <span className="fileExt">{a.originalName.split('.').pop()?.toUpperCase() || 'FILE'}</span>
                           </div>
                         )}
