@@ -1,10 +1,10 @@
 'use client';
 // Refactored MediaViewer component
 
-import React from 'react';
-import { Asset, Album, Tag } from '../types';
-import { fmtBytes, docIconOf } from '../lib/utils';
+import { Asset, Album, Tag, DocProject } from '../types';
+import { fmtBytes, docCategoryOf } from '../lib/utils';
 import SmartVideo from './SmartVideo';
+import * as Icons from './Icons';
 
 interface MediaViewerProps {
   active: Asset | null;
@@ -19,23 +19,33 @@ interface MediaViewerProps {
   setShowAlbumPicker: React.Dispatch<React.SetStateAction<boolean>>;
   showTagPicker: boolean;
   setShowTagPicker: React.Dispatch<React.SetStateAction<boolean>>;
+  showDocProjectPicker: boolean;
+  setShowDocProjectPicker: React.Dispatch<React.SetStateAction<boolean>>;
   activeMediaFit: 'contain-wide' | 'contain-tall';
   setActiveMediaFit: React.Dispatch<React.SetStateAction<'contain-wide' | 'contain-tall'>>;
   albumQuery: string;
   setAlbumQuery: (query: string) => void;
+  docProjectQuery: string;
+  setDocProjectQuery: (query: string) => void;
   tagQuery: string;
   setTagQuery: (query: string) => void;
   albums: Album[];
+  docProjects: DocProject[];
   tags: Tag[];
   selectedAlbumsForActive: string[];
+  selectedDocProjectsForActive: string[];
   selectedTagsForActive: string[];
   toggleAlbumSelection: (name: string) => void;
+  toggleDocProjectSelection: (name: string) => void;
   toggleTagSelection: (name: string) => void;
   saveActiveAlbums: () => void;
+  saveActiveDocProjects: () => void;
   saveActiveTags: () => void;
   createNewAlbumInSelection: (name: string) => void;
+  createNewDocProjectInSelection: (name: string) => void;
   createNewTagInSelection: (name: string) => void;
   loadAlbums: () => Promise<void>;
+  loadDocProjects: () => Promise<void>;
   loadTags: () => Promise<void>;
   setMsg: (msg: string) => void;
   api: string;
@@ -55,23 +65,33 @@ export default function MediaViewer({
   setShowAlbumPicker,
   showTagPicker,
   setShowTagPicker,
+  showDocProjectPicker,
+  setShowDocProjectPicker,
   activeMediaFit,
   setActiveMediaFit,
   albumQuery,
   setAlbumQuery,
+  docProjectQuery,
+  setDocProjectQuery,
   tagQuery,
   setTagQuery,
   albums,
+  docProjects,
   tags,
   selectedAlbumsForActive,
+  selectedDocProjectsForActive,
   selectedTagsForActive,
   toggleAlbumSelection,
+  toggleDocProjectSelection,
   toggleTagSelection,
   saveActiveAlbums,
+  saveActiveDocProjects,
   saveActiveTags,
   createNewAlbumInSelection,
+  createNewDocProjectInSelection,
   createNewTagInSelection,
   loadAlbums,
+  loadDocProjects,
   loadTags,
   setMsg,
   api,
@@ -101,21 +121,30 @@ export default function MediaViewer({
     setShowInfo(false);
     setShowAlbumPicker(false);
     setShowTagPicker(false);
+    setShowDocProjectPicker(false);
   };
 
   const onAlbumBtnClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       await loadAlbums();
-      if (!showAlbumPicker) {
-        const current = active.albumNames || (active.albumName ? [active.albumName] : []);
-        // Set initial select state
-        // (Note: selectedAlbumsForActive state management is in parent page.tsx)
-      }
       setShowAlbumPicker((v) => !v);
       setShowTagPicker(false);
+      setShowDocProjectPicker(false);
     } catch (er) {
       setMsg(t('viewer.errorLoadAlbum'));
+    }
+  };
+
+  const onDocProjectBtnClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await loadDocProjects();
+      setShowDocProjectPicker((v) => !v);
+      setShowAlbumPicker(false);
+      setShowTagPicker(false);
+    } catch (er) {
+      setMsg(t('viewer.errorLoadDocProjects') || 'Không tải được nhóm dự án tài liệu');
     }
   };
 
@@ -125,6 +154,7 @@ export default function MediaViewer({
       await loadTags();
       setShowTagPicker((v) => !v);
       setShowAlbumPicker(false);
+      setShowDocProjectPicker(false);
     } catch (er) {
       setMsg(t('viewer.errorLoadTags'));
     }
@@ -132,15 +162,15 @@ export default function MediaViewer({
 
   return (
     <div className="viewer" onClick={handleClose}>
-      <button className="nav left" onClick={handlePrev}>‹</button>
-      <div className={`stage ${activeMediaFit === 'contain-tall' ? 'stageTall' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <button className="nav left" onClick={handlePrev}><Icons.ChevronLeft size={24} /></button>
+      <div className={`stage ${activeMediaFit === 'contain-tall' ? 'stageTall' : ''}`}>
         <div className="stageTitle">{active.originalName}</div>
         {active.type === 'image' && (
-          <img key={active.id} src={`${api}/api/assets/_media/original/${active.id}`} alt={active.originalName} className={`full mediaEnter ${activeMediaFit}`} />
+          <img key={active.id} src={`${api}/api/assets/_media/original/${active.id}`} alt={active.originalName} className={`full mediaEnter ${activeMediaFit}`} onClick={(e) => e.stopPropagation()} />
         )}
         {active.type === 'video' && (
           active.processingStatus === 'processing' ? (
-            <div className="videoProcessingOverlay mediaEnter">
+            <div className="videoProcessingOverlay mediaEnter" onClick={(e) => e.stopPropagation()}>
               <div className="loadingSpinner" />
               <div className="overlayTitle">{t('viewer.videoOptimizing')}</div>
               <div className="overlayDesc">{t('viewer.videoOptimizingDesc')}</div>
@@ -150,23 +180,27 @@ export default function MediaViewer({
               </a>
             </div>
           ) : (
-            <SmartVideo
-              key={active.id}
-              hlsSrc={`${api}/api/assets/_media/hls/${active.id}/master.m3u8?v=${encodeURIComponent(active.processingFinishedAt || active.uploadedAt || active.id)}`}
-              mp4Src={`${api}/api/assets/_media/play/${active.id}?v=${encodeURIComponent(active.processingFinishedAt || active.uploadedAt || active.id)}`}
-              controls
-              autoPlay
-              className={`full mediaEnter ${activeMediaFit}`}
-              preload="auto"
-              active
-              onMeta={({ w, h }) => setActiveMediaFit(h > w ? 'contain-tall' : 'contain-wide')}
-            />
+            <div onClick={(e) => e.stopPropagation()} style={{ display: 'contents' }}>
+              <SmartVideo
+                key={active.id}
+                hlsSrc={`${api}/api/assets/_media/hls/${active.id}/master.m3u8?v=${encodeURIComponent(active.processingFinishedAt || active.uploadedAt || active.id)}`}
+                mp4Src={`${api}/api/assets/_media/play/${active.id}?v=${encodeURIComponent(active.processingFinishedAt || active.uploadedAt || active.id)}`}
+                controls
+                autoPlay
+                className={`full mediaEnter ${activeMediaFit}`}
+                preload="auto"
+                active
+                onMeta={({ w, h }) => setActiveMediaFit(h > w ? 'contain-tall' : 'contain-wide')}
+              />
+            </div>
           )
         )}
         {active.type !== 'image' && active.type !== 'video' && (
-          <div className="docPreviewBlock mediaEnter">
-            <div className="docIcon">{docIconOf(active)}</div>
-            <div className="docName">{active.originalName}</div>
+          <div className="docPreviewBlock mediaEnter" onClick={(e) => e.stopPropagation()}>
+            <div className="docIcon"><Icons.DocIcon item={active} size={64} /></div>
+            <div className="docTypeMeta" style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '10px', fontWeight: 500 }}>
+              {t('categories.' + docCategoryOf(active)) || docCategoryOf(active).toUpperCase()} · {fmtBytes(active.size)}
+            </div>
             <a href={`${api}/api/assets/_media/original/${active.id}`} target="_blank" rel="noreferrer" className="ghost" style={{ marginTop: '16px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
               <span>{t('viewer.openDoc')}</span>
               <span>↗</span>
@@ -174,13 +208,15 @@ export default function MediaViewer({
           </div>
         )}
       </div>
-      <button className="nav right" onClick={handleNext}>›</button>
-      <button className="topBtn infoBtn" onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}>i</button>
-      {active.type !== 'file' && (
-        <button className="topBtn albumBtn" onClick={onAlbumBtnClick}>＋</button>
+      <button className="nav right" onClick={handleNext}><Icons.ChevronRight size={24} /></button>
+      <button className="topBtn infoBtn" onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }} title={t('details.title')}><Icons.Info size={18} /></button>
+      {active.type !== 'file' ? (
+        <button className="topBtn albumBtn" onClick={onAlbumBtnClick} title={t('viewer.createNewAlbum')}><Icons.Plus size={18} /></button>
+      ) : (
+        <button className="topBtn albumBtn" onClick={onDocProjectBtnClick} title={t('viewer.createNewProject') || 'Tạo tập tài liệu mới'}><Icons.Plus size={18} /></button>
       )}
-      <button className="topBtn tagBtn" onClick={onTagBtnClick}>🏷</button>
-      <button className="close" onClick={handleClose}>✕</button>
+      <button className="topBtn tagBtn" onClick={onTagBtnClick} title={t('sidebar.tagsTitle')}><Icons.Tag size={18} /></button>
+      <button className="close" onClick={handleClose} title={t('actions.cancel')}><Icons.Close size={18} /></button>
 
       {showInfo && (
         <div className="infoPanel" onClick={(e) => e.stopPropagation()}>
@@ -189,7 +225,11 @@ export default function MediaViewer({
           <div>{t('details.size')}: {fmtBytes(active.size)}</div>
           <div>{t('details.createdAt')}: {active.takenAt || '-'}</div>
           <div>Upload: {active.uploadedAt || '-'}</div>
-          {active.type !== 'file' && <div>Album: {(active.albumNames || []).join(', ') || '-'}</div>}
+          {active.type !== 'file' ? (
+            <div>Album: {(active.albumNames || []).join(', ') || '-'}</div>
+          ) : (
+            <div>{t('sidebar.docProjectsTitle') || 'Tập tài liệu'}: {(active.docProjectNames || []).join(', ') || '-'}</div>
+          )}
           <div>Tags: {(active.tags || []).map(tVal => `#${tVal}`).join(', ') || '-'}</div>
         </div>
       )}
@@ -236,6 +276,29 @@ export default function MediaViewer({
           <div className="tagActions">
             <button className="tagBtnSave" onClick={saveActiveTags}>{t('actions.save')}</button>
             <button className="tagBtnCancel" onClick={() => setShowTagPicker(false)}>{t('actions.cancel')}</button>
+          </div>
+        </div>
+      )}
+
+      {showDocProjectPicker && (
+        <div className="albumPanel" onClick={(e) => e.stopPropagation()}>
+          <input className="albumSearch" placeholder={t('viewer.searchProjectPlaceholder') || 'Tìm tập tài liệu...'} value={docProjectQuery} onChange={(e) => setDocProjectQuery(e.target.value)} />
+          <button className="albumCreate" onClick={() => createNewDocProjectInSelection(docProjectQuery || window.prompt(t('messages.projectPrompt')) || '')}>+ {t('viewer.createNewProject') || 'Tạo tập tài liệu mới'}</button>
+          <div className="albumList">
+            {docProjects.filter((p) => p.name.toLowerCase().includes(docProjectQuery.toLowerCase())).map((p) => {
+              const isSelected = selectedDocProjectsForActive.includes(p.name);
+              return (
+                <button key={p.name} className={`albumItem ${isSelected ? 'selected' : ''}`} onClick={() => toggleDocProjectSelection(p.name)}>
+                  <span className="chk">{isSelected ? '✓' : ''}</span>
+                  <span>{p.name}</span>
+                  <span className="cnt">({p.count})</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="albumActions">
+            <button className="albumBtnSave" onClick={saveActiveDocProjects}>{t('actions.save')}</button>
+            <button className="albumBtnCancel" onClick={() => setShowDocProjectPicker(false)}>{t('actions.cancel')}</button>
           </div>
         </div>
       )}
