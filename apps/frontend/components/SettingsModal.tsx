@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import CustomDatePicker from './CustomDatePicker';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 
 interface User {
   sub: string;
@@ -51,11 +52,11 @@ function CustomSelect({ value, options, onChange }: CustomSelectProps) {
       <div 
         onClick={() => setIsOpen(!isOpen)}
         style={{
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'var(--bg-input)',
+          border: '1px solid var(--border-input)',
           borderRadius: '8px',
           padding: '8px 14px',
-          color: '#ffffff',
+          color: 'var(--text-primary)',
           fontSize: '13px',
           fontWeight: '500',
           cursor: 'pointer',
@@ -64,8 +65,8 @@ function CustomSelect({ value, options, onChange }: CustomSelectProps) {
           justifyContent: 'space-between',
           transition: 'all 0.15s ease'
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'; e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-input-focus)'; e.currentTarget.style.background = 'var(--bg-input-focus)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-input)'; e.currentTarget.style.background = 'var(--bg-input)'; }}
       >
         <span>{selectedOpt?.label}</span>
         <svg 
@@ -79,7 +80,7 @@ function CustomSelect({ value, options, onChange }: CustomSelectProps) {
           strokeLinejoin="round"
           style={{ 
             marginLeft: '8px', 
-            color: '#a1a1aa', 
+            color: 'var(--text-secondary)', 
             transition: 'transform 0.2s',
             transform: isOpen ? 'rotate(180deg)' : 'none'
           }}
@@ -92,10 +93,10 @@ function CustomSelect({ value, options, onChange }: CustomSelectProps) {
         position: 'absolute',
         top: 'calc(100% + 6px)',
         right: 0,
-        background: '#18181b',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'var(--bg-popover)',
+        border: '1px solid var(--border-color)',
         borderRadius: '8px',
-        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.7)',
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
         padding: '4px',
         zIndex: 1000,
         minWidth: '100%',
@@ -118,8 +119,8 @@ function CustomSelect({ value, options, onChange }: CustomSelectProps) {
               style={{
                 padding: '8px 12px',
                 borderRadius: '6px',
-                color: isSel ? '#ffffff' : '#a1a1aa',
-                background: isSel ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                color: isSel ? 'var(--text-primary)' : 'var(--text-secondary)',
+                background: isSel ? 'var(--bg-item-active)' : 'transparent',
                 fontSize: '12.5px',
                 fontWeight: isSel ? '600' : '400',
                 cursor: 'pointer',
@@ -128,13 +129,13 @@ function CustomSelect({ value, options, onChange }: CustomSelectProps) {
               }}
               onMouseEnter={(e) => {
                 if (!isSel) {
-                  e.currentTarget.style.color = '#ffffff';
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                  e.currentTarget.style.background = 'var(--bg-item-hover)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isSel) {
-                  e.currentTarget.style.color = '#a1a1aa';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
                   e.currentTarget.style.background = 'transparent';
                 }
               }}
@@ -219,10 +220,10 @@ export default function SettingsModal({
   api
 }: SettingsModalProps): React.JSX.Element | null {
   const { language, setLanguage, t } = useLanguage();
+  const { theme: appearance, setTheme: setAppearance } = useTheme();
 
   const [showMainPanel, setShowMainPanel] = useState<boolean>(true);
   const [settingsTab, setSettingsTab] = useState<'general' | 'profile' | 'invites'>('general');
-  const [appearance, setAppearance] = useState<'system' | 'dark' | 'light'>('dark');
   const [profileNameInput, setProfileNameInput] = useState<string>('');
   const [updateProfileMsg, setUpdateProfileMsg] = useState<string>('');
 
@@ -438,7 +439,7 @@ export default function SettingsModal({
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(5, 5, 5, 0.85)',
+          backgroundColor: 'var(--bg-backdrop)',
           backdropFilter: 'blur(12px)',
           zIndex: 9999,
           display: 'flex',
@@ -472,17 +473,24 @@ export default function SettingsModal({
               }
             }
             .tableRowHover:hover {
-              background: rgba(255, 255, 255, 0.015);
+              background: var(--bg-item-hover);
             }
           `}</style>
           <div style={{
             display: 'flex',
-            gap: '20px',
+            gap: '24px',
             width: '90%',
             maxWidth: '880px',
-            height: '430px',
+            height: '460px',
             alignItems: 'stretch',
-            animation: 'modalScaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+            animation: 'modalScaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            background: 'var(--bg-modal-wrapper)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid var(--border-strong)',
+            borderRadius: '24px',
+            padding: '24px',
+            boxShadow: 'var(--modal-shadow)',
+            boxSizing: 'border-box'
           }} onClick={(e) => e.stopPropagation()}>
             
             {/* Cột các tab Option bên trái */}
@@ -496,10 +504,10 @@ export default function SettingsModal({
               <button 
                 onClick={() => setSettingsTab('general')}
                 style={{
-                  background: settingsTab === 'general' ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                  background: settingsTab === 'general' ? 'var(--bg-item-active)' : 'transparent',
                   border: 'none',
                   borderRadius: '8px',
-                  color: settingsTab === 'general' ? '#ffffff' : '#a1a1aa',
+                  color: settingsTab === 'general' ? 'var(--text-primary)' : 'var(--text-secondary)',
                   padding: '11px 12px',
                   fontSize: '13.5px',
                   fontWeight: '600',
@@ -512,8 +520,8 @@ export default function SettingsModal({
                   width: '100%',
                   boxSizing: 'border-box'
                 }}
-                onMouseEnter={(e: any) => { if (settingsTab !== 'general') e.currentTarget.style.color = '#ffffff'; }}
-                onMouseLeave={(e: any) => { if (settingsTab !== 'general') e.currentTarget.style.color = '#a1a1aa'; }}
+                onMouseEnter={(e: any) => { if (settingsTab !== 'general') e.currentTarget.style.color = 'var(--text-primary)'; }}
+                onMouseLeave={(e: any) => { if (settingsTab !== 'general') e.currentTarget.style.color = 'var(--text-secondary)'; }}
               >
                 <span style={{ display: 'inline-flex', alignItems: 'center', opacity: settingsTab === 'general' ? 1 : 0.7 }}><Icons.Settings /></span>
                 <span>{t('settings.tabGeneral')}</span>
@@ -522,10 +530,10 @@ export default function SettingsModal({
               <button 
                 onClick={() => setSettingsTab('profile')}
                 style={{
-                  background: settingsTab === 'profile' ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                  background: settingsTab === 'profile' ? 'var(--bg-item-active)' : 'transparent',
                   border: 'none',
                   borderRadius: '8px',
-                  color: settingsTab === 'profile' ? '#ffffff' : '#a1a1aa',
+                  color: settingsTab === 'profile' ? 'var(--text-primary)' : 'var(--text-secondary)',
                   padding: '11px 12px',
                   fontSize: '13.5px',
                   fontWeight: '600',
@@ -538,8 +546,8 @@ export default function SettingsModal({
                   width: '100%',
                   boxSizing: 'border-box'
                 }}
-                onMouseEnter={(e: any) => { if (settingsTab !== 'profile') e.currentTarget.style.color = '#ffffff'; }}
-                onMouseLeave={(e: any) => { if (settingsTab !== 'profile') e.currentTarget.style.color = '#a1a1aa'; }}
+                onMouseEnter={(e: any) => { if (settingsTab !== 'profile') e.currentTarget.style.color = 'var(--text-primary)'; }}
+                onMouseLeave={(e: any) => { if (settingsTab !== 'profile') e.currentTarget.style.color = 'var(--text-secondary)'; }}
               >
                 <span style={{ display: 'inline-flex', alignItems: 'center', opacity: settingsTab === 'profile' ? 1 : 0.7 }}><Icons.User /></span>
                 <span>{t('settings.tabProfile')}</span>
@@ -549,10 +557,10 @@ export default function SettingsModal({
                 <button 
                   onClick={() => setSettingsTab('invites')}
                   style={{
-                    background: settingsTab === 'invites' ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                    background: settingsTab === 'invites' ? 'var(--bg-item-active)' : 'transparent',
                     border: 'none',
                     borderRadius: '8px',
-                    color: settingsTab === 'invites' ? '#ffffff' : '#a1a1aa',
+                    color: settingsTab === 'invites' ? 'var(--text-primary)' : 'var(--text-secondary)',
                     padding: '11px 12px',
                     fontSize: '13.5px',
                     fontWeight: '600',
@@ -565,8 +573,8 @@ export default function SettingsModal({
                     width: '100%',
                     boxSizing: 'border-box'
                   }}
-                  onMouseEnter={(e: any) => { if (settingsTab !== 'invites') e.currentTarget.style.color = '#ffffff'; }}
-                  onMouseLeave={(e: any) => { if (settingsTab !== 'invites') e.currentTarget.style.color = '#a1a1aa'; }}
+                  onMouseEnter={(e: any) => { if (settingsTab !== 'invites') e.currentTarget.style.color = 'var(--text-primary)'; }}
+                  onMouseLeave={(e: any) => { if (settingsTab !== 'invites') e.currentTarget.style.color = 'var(--text-secondary)'; }}
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', opacity: settingsTab === 'invites' ? 1 : 0.7 }}><Icons.Key /></span>
                   <span>{t('settings.tabInvites')}</span>
@@ -577,14 +585,13 @@ export default function SettingsModal({
             {/* Khung chứa nội dung tab bên phải (Premium Glassmorphism) */}
             <div style={{
               flex: 1,
-              background: 'rgba(20, 20, 25, 0.75)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '20px',
-              padding: '28px 32px',
+              background: 'var(--bg-modal-content)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              padding: '20px 24px',
               display: 'flex',
               flexDirection: 'column',
-              color: '#f4f4f5',
-              boxShadow: '0 30px 60px -15px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+              color: 'var(--text-primary)',
               position: 'relative',
               boxSizing: 'border-box',
               overflow: 'visible'
@@ -599,15 +606,15 @@ export default function SettingsModal({
                     right: '24px',
                     background: 'transparent',
                     border: 0,
-                    color: '#71717a',
+                    color: 'var(--text-muted)',
                     fontSize: '20px',
                     cursor: 'pointer',
                     transition: 'color 0.2s',
                     padding: '4px',
                     zIndex: 10
                   }}
-                  onMouseEnter={(e: any) => { e.target.style.color = '#fff'; }}
-                  onMouseLeave={(e: any) => { e.target.style.color = '#71717a'; }}
+                  onMouseEnter={(e: any) => { e.target.style.color = 'var(--text-primary)'; }}
+                  onMouseLeave={(e: any) => { e.target.style.color = 'var(--text-muted)'; }}
                 >
                   ✕
                 </button>
@@ -618,7 +625,7 @@ export default function SettingsModal({
               {/* 1. TỔNG QUAN (GENERAL) */}
               {settingsTab === 'general' && (
                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%', animation: 'tabSlideIn 0.2s ease-out' }}>
-                  <h3 style={{ margin: '0 0 16px 0', fontSize: '17px', color: '#ffffff', fontWeight: '600' }}>{t('settings.tabGeneral')}</h3>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '17px', color: 'var(--text-primary)', fontWeight: '600' }}>{t('settings.tabGeneral')}</h3>
 
                   {/* Greeting & Quick Link card */}
                   <div style={{
@@ -627,8 +634,8 @@ export default function SettingsModal({
                     justifyContent: 'space-between',
                     padding: '14px 18px',
                     borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-color)',
                     marginBottom: '20px'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -648,10 +655,10 @@ export default function SettingsModal({
                         {user ? user.name.charAt(0).toUpperCase() : 'U'}
                       </div>
                       <div>
-                        <div style={{ fontSize: '14px', fontWeight: '600', color: '#ffffff' }}>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>
                           {t('settings.greeting', { name: user?.name || '' })}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#71717a', marginTop: '2px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
                           {user?.email}
                         </div>
                       </div>
@@ -659,18 +666,18 @@ export default function SettingsModal({
                     <button
                       onClick={() => setSettingsTab('profile')}
                       style={{
-                        background: 'rgba(255, 255, 255, 0.06)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        background: 'var(--bg-item-hover)',
+                        border: '1px solid var(--border-input)',
                         borderRadius: '6px',
-                        color: '#ffffff',
+                        color: 'var(--text-primary)',
                         padding: '6px 12px',
                         fontSize: '12.5px',
                         fontWeight: '600',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease'
                       }}
-                      onMouseEnter={(e: any) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'; }}
-                      onMouseLeave={(e: any) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'; }}
+                      onMouseEnter={(e: any) => { e.currentTarget.style.background = 'var(--bg-item-active)'; }}
+                      onMouseLeave={(e: any) => { e.currentTarget.style.background = 'var(--bg-item-hover)'; }}
                     >
                       {t('settings.editProfileLink')}
                     </button>
@@ -684,9 +691,9 @@ export default function SettingsModal({
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       paddingBottom: '14px',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
+                      borderBottom: '1px solid var(--border-color)'
                     }}>
-                      <span style={{ fontSize: '13.5px', color: '#e4e4e7', fontWeight: '500' }}>
+                      <span style={{ fontSize: '13.5px', color: 'var(--text-primary)', fontWeight: '500' }}>
                         {t('settings.language')}
                       </span>
                       <CustomSelect 
@@ -705,9 +712,9 @@ export default function SettingsModal({
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       paddingBottom: '14px',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
+                      borderBottom: '1px solid var(--border-color)'
                     }}>
-                      <span style={{ fontSize: '13.5px', color: '#e4e4e7', fontWeight: '500' }}>
+                      <span style={{ fontSize: '13.5px', color: 'var(--text-primary)', fontWeight: '500' }}>
                         {t('settings.appearance')}
                       </span>
                       <CustomSelect 
@@ -727,7 +734,7 @@ export default function SettingsModal({
               {/* 2. HỒ SƠ & BẢO MẬT (PROFILE & SECURITY) */}
               {settingsTab === 'profile' && (
                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%', animation: 'tabSlideIn 0.2s ease-out' }}>
-                  <h3 style={{ margin: '0 0 16px 0', fontSize: '17px', color: '#ffffff', fontWeight: '600' }}>{t('settings.tabProfile')}</h3>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '17px', color: 'var(--text-primary)', fontWeight: '600' }}>{t('settings.tabProfile')}</h3>
                   
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: '28px', flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
                     {/* Cột trái: Cập nhật thông tin profile */}
@@ -735,32 +742,32 @@ export default function SettingsModal({
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '16px',
-                      borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+                      borderRight: '1px solid var(--border-color)',
                       paddingRight: '24px'
                     }}>
                       <form onSubmit={handleUpdateProfile} style={{ display: 'grid', gap: '16px' }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.displayName')}</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.displayName')}</label>
                           <input 
                             type="text" 
                             value={profileNameInput} 
                             onChange={(e) => setProfileNameInput(e.target.value)} 
                             required 
-                            style={{ width: '100%', padding: '9px 12px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(0,0,0,0.2)', color: '#ffffff', fontSize: '13.5px', outline: 'none', transition: 'all 0.15s ease' }}
+                            style={{ width: '100%', padding: '9px 12px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid var(--border-input)', backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: '13.5px', outline: 'none', transition: 'all 0.15s ease' }}
                             onFocus={(e: any) => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.15)'; }}
-                            onBlur={(e: any) => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
+                            onBlur={(e: any) => { e.target.style.borderColor = 'var(--border-input)'; e.target.style.boxShadow = 'none'; }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.emailLabel')}</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.emailLabel')}</label>
                           <div style={{
                             width: '100%',
                             padding: '9px 12px',
                             boxSizing: 'border-box',
                             borderRadius: '6px',
-                            border: '1px solid rgba(255,255,255,0.03)',
-                            backgroundColor: 'rgba(255, 255, 255, 0.01)',
-                            color: '#52525b',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: 'var(--bg-input)',
+                            color: 'var(--text-muted)',
                             fontSize: '13.5px',
                             display: 'flex',
                             alignItems: 'center',
@@ -769,7 +776,7 @@ export default function SettingsModal({
                           }}>
                             <span>{user?.email}</span>
                             <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#52525b' }}>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
                                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                               </svg>
@@ -797,12 +804,13 @@ export default function SettingsModal({
                               padding: '9px 18px',
                               borderRadius: '6px',
                               border: 0,
-                              backgroundColor: '#ffffff',
-                              color: '#000000',
+                              backgroundColor: 'var(--button-primary-bg)',
+                              color: 'var(--button-primary-text)',
                               fontWeight: '600',
                               cursor: 'pointer',
                               fontSize: '13px',
                               transition: 'opacity 0.15s ease',
+                              boxShadow: '0 4px 12px var(--button-primary-shadow)'
                             }}
                             onMouseEnter={(e: any) => { e.target.style.opacity = '0.9'; }}
                             onMouseLeave={(e: any) => { e.target.style.opacity = '1'; }}
@@ -817,39 +825,39 @@ export default function SettingsModal({
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <form onSubmit={handleChangePassword} style={{ display: 'grid', gap: '12px' }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.oldPassword')}</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.oldPassword')}</label>
                           <input 
                             type="password" 
                             value={oldPassword} 
                             onChange={(e) => setOldPassword(e.target.value)} 
                             required 
-                            style={{ width: '100%', padding: '9px 12px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(0,0,0,0.2)', color: '#ffffff', fontSize: '13.5px', outline: 'none', transition: 'all 0.15s ease' }}
+                            style={{ width: '100%', padding: '9px 12px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid var(--border-input)', backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: '13.5px', outline: 'none', transition: 'all 0.15s ease' }}
                             onFocus={(e: any) => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.15)'; }}
-                            onBlur={(e: any) => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
+                            onBlur={(e: any) => { e.target.style.borderColor = 'var(--border-input)'; e.target.style.boxShadow = 'none'; }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.newPassword')}</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.newPassword')}</label>
                           <input 
                             type="password" 
                             value={newPassword} 
                             onChange={(e) => setNewPassword(e.target.value)} 
                             required 
-                            style={{ width: '100%', padding: '9px 12px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(0,0,0,0.2)', color: '#ffffff', fontSize: '13.5px', outline: 'none', transition: 'all 0.15s ease' }}
+                            style={{ width: '100%', padding: '9px 12px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid var(--border-input)', backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: '13.5px', outline: 'none', transition: 'all 0.15s ease' }}
                             onFocus={(e: any) => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.15)'; }}
-                            onBlur={(e: any) => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
+                            onBlur={(e: any) => { e.target.style.borderColor = 'var(--border-input)'; e.target.style.boxShadow = 'none'; }}
                           />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.confirmPassword')}</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('settings.confirmPassword')}</label>
                           <input 
                             type="password" 
                             value={confirmPassword} 
                             onChange={(e) => setConfirmPassword(e.target.value)} 
                             required 
-                            style={{ width: '100%', padding: '9px 12px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(0,0,0,0.2)', color: '#ffffff', fontSize: '13.5px', outline: 'none', transition: 'all 0.15s ease' }}
+                            style={{ width: '100%', padding: '9px 12px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid var(--border-input)', backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: '13.5px', outline: 'none', transition: 'all 0.15s ease' }}
                             onFocus={(e: any) => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.15)'; }}
-                            onBlur={(e: any) => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
+                            onBlur={(e: any) => { e.target.style.borderColor = 'var(--border-input)'; e.target.style.boxShadow = 'none'; }}
                           />
                         </div>
 
@@ -867,12 +875,13 @@ export default function SettingsModal({
                               padding: '9px 18px',
                               borderRadius: '6px',
                               border: 0,
-                              backgroundColor: '#ffffff',
-                              color: '#000000',
+                              backgroundColor: 'var(--button-primary-bg)',
+                              color: 'var(--button-primary-text)',
                               fontWeight: '600',
                               cursor: 'pointer',
                               fontSize: '13.5px',
                               transition: 'opacity 0.15s ease',
+                              boxShadow: '0 4px 12px var(--button-primary-shadow)'
                             }}
                             onMouseEnter={(e: any) => { e.target.style.opacity = '0.9'; }}
                             onMouseLeave={(e: any) => { e.target.style.opacity = '1'; }}
@@ -880,7 +889,7 @@ export default function SettingsModal({
                             {t('settings.changePassword')}
                           </button>
                           
-                          <div style={{ fontSize: '9.5px', color: '#71717a', lineHeight: '1.3', marginTop: '4px' }}>
+                          <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', lineHeight: '1.3', marginTop: '4px' }}>
                             {t('settings.strongPassword')}: {t('settings.strongPasswordRequirement1')} &middot; {t('settings.strongPasswordRequirement2')}
                           </div>
                         </div>
@@ -893,7 +902,7 @@ export default function SettingsModal({
               {/* 3. QUẢN LÝ MÃ MỜI (ADMIN ONLY) */}
               {settingsTab === 'invites' && user?.role === 'admin' && (
                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'visible', animation: 'tabSlideIn 0.2s ease-out' }}>
-                  <h3 style={{ margin: '0 0 16px 0', fontSize: '17px', color: '#ffffff', fontWeight: '600' }}>{t('invite.title')}</h3>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '17px', color: 'var(--text-primary)', fontWeight: '600' }}>{t('invite.title')}</h3>
                   
                   <div style={{ display: 'flex', gap: '24px', alignItems: 'stretch', flex: 1, overflow: 'visible' }}>
                     {/* Cột trái: Form tạo mã mời */}
@@ -902,38 +911,38 @@ export default function SettingsModal({
                       display: 'flex',
                       flexDirection: 'column',
                       paddingRight: '24px',
-                      borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+                      borderRight: '1px solid var(--border-color)',
                       boxSizing: 'border-box',
                       justifyContent: 'center'
                     }}>
-                      <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: '600', color: '#ffffff' }}>{t('invite.createTitle')}</h4>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>{t('invite.createTitle')}</h4>
                       <form onSubmit={handleCreateInvitation} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('invite.maxUses')}</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('invite.maxUses')}</label>
                           <input 
                             type="number" 
                             min="1" 
                             value={maxUsesInput} 
                             onChange={(e) => setMaxUsesInput(e.target.value)} 
                             required 
-                            style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '7px 10px', color: '#ffffff', fontSize: '13px', outline: 'none', transition: 'all 0.15s ease', boxSizing: 'border-box' }}
+                            style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-input)', borderRadius: '6px', padding: '7px 10px', color: 'var(--text-primary)', fontSize: '13px', outline: 'none', transition: 'all 0.15s ease', boxSizing: 'border-box' }}
                             onFocus={(e: any) => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.15)'; }}
-                            onBlur={(e: any) => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
+                            onBlur={(e: any) => { e.target.style.borderColor = 'var(--border-input)'; e.target.style.boxShadow = 'none'; }}
                           />
                         </div>
 
                         <div>
-                          <label style={{ display: 'block', fontSize: '10.5px', color: '#71717a', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('invite.expiry')}</label>
+                          <label style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('invite.expiry')}</label>
                           <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
                             <button 
                               type="button" 
                               onClick={() => { setExpiresType('hours'); setExpiresDateInput(''); }}
                               style={{
                                 flex: 1,
-                                background: expiresType === 'hours' ? 'rgba(255,255,255,0.08)' : 'transparent',
-                                border: '1px solid rgba(255,255,255,0.08)',
+                                background: expiresType === 'hours' ? 'var(--bg-item-active)' : 'transparent',
+                                border: '1px solid var(--border-input)',
                                 borderRadius: '4px',
-                                color: expiresType === 'hours' ? '#ffffff' : '#a1a1aa',
+                                color: expiresType === 'hours' ? 'var(--text-primary)' : 'var(--text-secondary)',
                                 padding: '5px 0',
                                 fontSize: '10px',
                                 fontWeight: '600',
@@ -948,10 +957,10 @@ export default function SettingsModal({
                               onClick={() => { setExpiresType('date'); setExpiresInHoursInput(''); }}
                               style={{
                                 flex: 1,
-                                background: expiresType === 'date' ? 'rgba(255,255,255,0.08)' : 'transparent',
-                                border: '1px solid rgba(255,255,255,0.08)',
+                                background: expiresType === 'date' ? 'var(--bg-item-active)' : 'transparent',
+                                border: '1px solid var(--border-input)',
                                 borderRadius: '4px',
-                                color: expiresType === 'date' ? '#ffffff' : '#a1a1aa',
+                                color: expiresType === 'date' ? 'var(--text-primary)' : 'var(--text-secondary)',
                                 padding: '5px 0',
                                 fontSize: '10px',
                                 fontWeight: '600',
@@ -970,9 +979,9 @@ export default function SettingsModal({
                               placeholder={t('invite.noExpiry')}
                               value={expiresInHoursInput} 
                               onChange={(e) => setExpiresInHoursInput(e.target.value)} 
-                              style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '7px 10px', color: '#ffffff', fontSize: '13px', outline: 'none', transition: 'all 0.15s ease', boxSizing: 'border-box' }}
+                              style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-input)', borderRadius: '6px', padding: '7px 10px', color: 'var(--text-primary)', fontSize: '13px', outline: 'none', transition: 'all 0.15s ease', boxSizing: 'border-box' }}
                               onFocus={(e: any) => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.15)'; }}
-                              onBlur={(e: any) => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
+                              onBlur={(e: any) => { e.target.style.borderColor = 'var(--border-input)'; e.target.style.boxShadow = 'none'; }}
                             />
                           ) : (
                             <div>
@@ -982,7 +991,7 @@ export default function SettingsModal({
                                 minDate={todayStr}
                                 lang={language}
                               />
-                              <span style={{ display: 'block', fontSize: '9px', color: '#71717a', marginTop: '5px', lineHeight: '1.4' }}>
+                              <span style={{ display: 'block', fontSize: '9px', color: 'var(--text-muted)', marginTop: '5px', lineHeight: '1.4' }}>
                                 {t('invite.expiryDateHint')}
                               </span>
                             </div>
@@ -992,8 +1001,8 @@ export default function SettingsModal({
                         <button 
                           type="submit" 
                           style={{
-                            background: '#ffffff',
-                            color: '#000000',
+                            background: 'var(--button-primary-bg)',
+                            color: 'var(--button-primary-text)',
                             border: 0,
                             borderRadius: '6px',
                             padding: '8px 14px',
@@ -1001,7 +1010,8 @@ export default function SettingsModal({
                             fontWeight: '600',
                             cursor: 'pointer',
                             transition: 'opacity 0.15s ease',
-                            marginTop: '4px'
+                            marginTop: '4px',
+                            boxShadow: '0 4px 12px var(--button-primary-shadow)'
                           }}
                           onMouseEnter={(e: any) => { e.target.style.opacity = '0.9'; }}
                           onMouseLeave={(e: any) => { e.target.style.opacity = '1'; }}
@@ -1027,27 +1037,27 @@ export default function SettingsModal({
 
                     {/* Cột phải: Danh sách mã mời */}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                      <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: '600', color: '#ffffff' }}>{t('invite.listTitle')}</h4>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>{t('invite.listTitle')}</h4>
                       <div style={{
                         flex: 1,
-                        border: '1px solid rgba(255, 255, 255, 0.06)',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '8px',
                         overflowY: 'auto',
-                        background: 'rgba(0, 0, 0, 0.15)'
+                        background: 'var(--bg-input)'
                       }}>
                         {invitations.length === 0 ? (
-                          <div style={{ padding: '24px', textAlign: 'center', color: '#71717a', fontSize: '12.5px' }}>
+                          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px' }}>
                             {t('invite.emptyList')}
                           </div>
                         ) : (
-                          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px', color: '#e4e4e7' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px', color: 'var(--text-primary)' }}>
                             <thead>
-                              <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a' }}>{t('invite.colCode')}</th>
-                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a' }}>{t('invite.colUses')}</th>
-                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a' }}>{t('invite.colExpiry')}</th>
-                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a' }}>{t('invite.colStatus')}</th>
-                                <th style={{ padding: '8px 10px', fontWeight: '600', color: '#71717a', textAlign: 'right' }}>{t('invite.colAction')}</th>
+                              <tr style={{ background: 'var(--bg-item-hover)', borderBottom: '1px solid var(--border-color)' }}>
+                                <th style={{ padding: '8px 10px', fontWeight: '600', color: 'var(--text-muted)' }}>{t('invite.colCode')}</th>
+                                <th style={{ padding: '8px 10px', fontWeight: '600', color: 'var(--text-muted)' }}>{t('invite.colUses')}</th>
+                                <th style={{ padding: '8px 10px', fontWeight: '600', color: 'var(--text-muted)' }}>{t('invite.colExpiry')}</th>
+                                <th style={{ padding: '8px 10px', fontWeight: '600', color: 'var(--text-muted)' }}>{t('invite.colStatus')}</th>
+                                <th style={{ padding: '8px 10px', fontWeight: '600', color: 'var(--text-muted)', textAlign: 'right' }}>{t('invite.colAction')}</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1055,7 +1065,7 @@ export default function SettingsModal({
                                 const isExpired = inv.expires_at && new Date(inv.expires_at) < new Date();
                                 const isActive = inv.is_active && !isExpired && (inv.max_uses === null || inv.uses_count < inv.max_uses);
                                 return (
-                                  <tr key={inv.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s' }} className="tableRowHover">
+                                  <tr key={inv.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} className="tableRowHover">
                                     <td 
                                       onClick={() => {
                                         if (isActive) {
@@ -1069,7 +1079,7 @@ export default function SettingsModal({
                                       style={{ 
                                         padding: '8px 10px', 
                                         fontWeight: '700', 
-                                        color: isActive ? '#3b82f6' : '#71717a', 
+                                        color: isActive ? '#3b82f6' : 'var(--text-muted)', 
                                         fontFamily: 'monospace', 
                                         fontSize: '13px',
                                         cursor: 'pointer',
@@ -1082,7 +1092,7 @@ export default function SettingsModal({
                                       {inv.token}
                                     </td>
                                     <td style={{ padding: '8px 10px' }}>{inv.uses_count}/{inv.max_uses || '∞'}</td>
-                                    <td style={{ padding: '8px 10px', color: '#71717a' }}>
+                                    <td style={{ padding: '8px 10px', color: 'var(--text-muted)' }}>
                                       {inv.expires_at ? new Date(inv.expires_at).toLocaleDateString('vi-VN') : t('invite.noExpiry')}
                                     </td>
                                     <td style={{ padding: '8px 10px' }}>
@@ -1138,7 +1148,7 @@ export default function SettingsModal({
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backgroundColor: 'var(--bg-backdrop)',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
@@ -1146,25 +1156,25 @@ export default function SettingsModal({
           backdropFilter: 'blur(4px)',
         }}>
           <div style={{
-            backgroundColor: '#18181b',
-            border: '1px solid #27272a',
+            backgroundColor: 'var(--bg-popover)',
+            border: '1px solid var(--border-color)',
             padding: '24px',
             borderRadius: '12px',
             width: '100%',
             maxWidth: '400px',
-            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)',
-            color: '#f4f4f5',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
+            color: 'var(--text-primary)',
             fontFamily: 'sans-serif',
             textAlign: 'center'
           }}>
-            <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 18, color: '#fff' }}>{t('dialogs.logoutOthersTitle')}</h3>
-            <p style={{ fontSize: 14, color: '#a1a1aa', lineHeight: '1.5', marginBottom: 20 }}>
+            <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 18, color: 'var(--text-primary)' }}>{t('dialogs.logoutOthersTitle')}</h3>
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: '1.5', marginBottom: 20 }}>
               {t('dialogs.logoutOthersText')}
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
               <button 
                 onClick={() => handleLogoutOthers(false)}
-                style={{ padding: '10px 20px', borderRadius: '6px', border: '1px solid #3f3f46', backgroundColor: 'transparent', color: '#fff', cursor: 'pointer' }}
+                style={{ padding: '10px 20px', borderRadius: '6px', border: '1px solid var(--border-input)', backgroundColor: 'transparent', color: 'var(--text-primary)', cursor: 'pointer' }}
               >
                 {t('dialogs.logoutOthersNo')}
               </button>
@@ -1184,16 +1194,16 @@ export default function SettingsModal({
           position: 'fixed',
           bottom: '32px',
           left: '50%',
-          transform: 'translateX(-55%)',
-          backgroundColor: '#18181b',
-          color: '#ffffff',
+          transform: 'translateX(-50%)',
+          backgroundColor: 'var(--bg-popover)',
+          color: 'var(--text-primary)',
           padding: '8px 16px',
           borderRadius: '6px',
           fontSize: '12.5px',
           fontWeight: '600',
-          boxShadow: '0 10px 20px -3px rgba(0,0,0,0.6), 0 4px 6px -2px rgba(0,0,0,0.6)',
+          boxShadow: '0 10px 20px -3px rgba(0,0,0,0.3), 0 4px 6px -2px rgba(0,0,0,0.3)',
           zIndex: 10000,
-          border: '1px solid rgba(255,255,255,0.08)',
+          border: '1px solid var(--border-color)',
           pointerEvents: 'none',
           boxSizing: 'border-box'
         }}>
