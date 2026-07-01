@@ -64,6 +64,12 @@ interface CloudContextType {
   setAlbumQuery: React.Dispatch<React.SetStateAction<string>>;
   selectedAlbumsForActive: string[];
   setSelectedAlbumsForActive: React.Dispatch<React.SetStateAction<string[]>>;
+  showDocProjectPicker: boolean;
+  setShowDocProjectPicker: React.Dispatch<React.SetStateAction<boolean>>;
+  docProjectQuery: string;
+  setDocProjectQuery: React.Dispatch<React.SetStateAction<string>>;
+  selectedDocProjectsForActive: string[];
+  setSelectedDocProjectsForActive: React.Dispatch<React.SetStateAction<string[]>>;
   tags: Tag[];
   setTags: React.Dispatch<React.SetStateAction<Tag[]>>;
   selectedFilterTags: string[];
@@ -132,6 +138,9 @@ interface CloudContextType {
   toggleAlbumSelection: (name: string) => void;
   createNewAlbumInSelection: (name: string) => void;
   saveActiveAlbums: () => Promise<void>;
+  toggleDocProjectSelection: (name: string) => void;
+  createNewDocProjectInSelection: (name: string) => void;
+  saveActiveDocProjects: () => Promise<void>;
   toggleTagSelection: (name: string) => void;
   createNewTagInSelection: (name: string) => void;
   saveActiveTags: () => Promise<void>;
@@ -190,6 +199,9 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [albumQuery, setAlbumQuery] = useState<string>('');
   const [selectedAlbumsForActive, setSelectedAlbumsForActive] = useState<string[]>([]);
+  const [showDocProjectPicker, setShowDocProjectPicker] = useState<boolean>(false);
+  const [docProjectQuery, setDocProjectQuery] = useState<string>('');
+  const [selectedDocProjectsForActive, setSelectedDocProjectsForActive] = useState<string[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedFilterTags, setSelectedFilterTags] = useState<string[]>([]);
   const [selectedTagsForActive, setSelectedTagsForActive] = useState<string[]>([]);
@@ -794,6 +806,43 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  function toggleDocProjectSelection(name: string) {
+    setSelectedDocProjectsForActive((prev) =>
+      prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]
+    );
+  }
+
+  function createNewDocProjectInSelection(name: string) {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return;
+    setSelectedDocProjectsForActive((prev) =>
+      prev.includes(trimmed) ? prev : [...prev, trimmed]
+    );
+    setDocProjects((prev) => {
+      if (prev.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) return prev;
+      return [...prev, { name: trimmed, count: 0 }];
+    });
+  }
+
+  async function saveActiveDocProjects() {
+    if (!active?.id) return;
+    try {
+      const r = await fetch(`${api}/api/assets/${active.id}/doc-projects`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectNames: selectedDocProjectsForActive }),
+      });
+      if (!r.ok) throw new Error(t('viewer.projectUpdateFailed') || 'Cập nhật tập tài liệu thất bại');
+      await loadData(true);
+      await loadDocProjects();
+      setShowDocProjectPicker(false);
+      setMsg(t('viewer.projectUpdateSuccess') || 'Đã cập nhật tập tài liệu của file thành công!');
+    } catch (e: any) {
+      setMsg(t('viewer.projectSaveError', { error: e.message }) || `Lỗi lưu tập tài liệu: ${e.message}`);
+    }
+  }
+
   function toggleTagSelection(name: string) {
     setSelectedTagsForActive((prev) =>
       prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]
@@ -837,10 +886,24 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Sync active asset's relationships on active change
+  useEffect(() => {
+    if (active) {
+      setSelectedAlbumsForActive(active.albumNames || (active.albumName ? [active.albumName] : []));
+      setSelectedTagsForActive(active.tags || []);
+      setSelectedDocProjectsForActive(active.docProjectNames || (active.docProjectName ? [active.docProjectName] : []));
+    } else {
+      setSelectedAlbumsForActive([]);
+      setSelectedTagsForActive([]);
+      setSelectedDocProjectsForActive([]);
+    }
+  }, [active]);
+
   // Initial load
   useEffect(() => {
     loadData();
     loadAlbums();
+    loadDocProjects();
   }, [activeWorkspace]);
 
   return (
@@ -865,6 +928,9 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
       albums, setAlbums,
       albumQuery, setAlbumQuery,
       selectedAlbumsForActive, setSelectedAlbumsForActive,
+      showDocProjectPicker, setShowDocProjectPicker,
+      docProjectQuery, setDocProjectQuery,
+      selectedDocProjectsForActive, setSelectedDocProjectsForActive,
       tags, setTags,
       selectedFilterTags, setSelectedFilterTags,
       selectedTagsForActive, setSelectedTagsForActive,
@@ -907,6 +973,9 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
       toggleAlbumSelection,
       createNewAlbumInSelection,
       saveActiveAlbums,
+      toggleDocProjectSelection,
+      createNewDocProjectInSelection,
+      saveActiveDocProjects,
       toggleTagSelection,
       createNewTagInSelection,
       saveActiveTags,

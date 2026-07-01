@@ -38,6 +38,12 @@ export default function CloudLayoutWrapper({ children }: { children: React.React
     toggleTagSelection, saveActiveAlbums, saveActiveTags,
     createNewAlbumInSelection, createNewTagInSelection, loadAlbums, loadTags, setMsg, api,
     
+    showDocProjectPicker, setShowDocProjectPicker,
+    docProjectQuery, setDocProjectQuery,
+    selectedDocProjectsForActive,
+    toggleDocProjectSelection, createNewDocProjectInSelection,
+    saveActiveDocProjects, loadDocProjects,
+
     showSettingsModal, setUser,
     mustChangePassword, setMustChangePassword, setErr,
     groupByTimeEnabled, setGroupByTimeEnabled, groupMode, setGroupMode,
@@ -133,23 +139,33 @@ export default function CloudLayoutWrapper({ children }: { children: React.React
         setShowAlbumPicker={setShowAlbumPicker}
         showTagPicker={showTagPicker}
         setShowTagPicker={setShowTagPicker}
+        showDocProjectPicker={showDocProjectPicker}
+        setShowDocProjectPicker={setShowDocProjectPicker}
         activeMediaFit={activeMediaFit}
         setActiveMediaFit={setActiveMediaFit}
         albumQuery={albumQuery}
         setAlbumQuery={setAlbumQuery}
+        docProjectQuery={docProjectQuery}
+        setDocProjectQuery={setDocProjectQuery}
         tagQuery={tagQuery}
         setTagQuery={setTagQuery}
         albums={albums}
+        docProjects={docProjects}
         tags={tags}
         selectedAlbumsForActive={selectedAlbumsForActive}
+        selectedDocProjectsForActive={selectedDocProjectsForActive}
         selectedTagsForActive={selectedTagsForActive}
         toggleAlbumSelection={toggleAlbumSelection}
+        toggleDocProjectSelection={toggleDocProjectSelection}
         toggleTagSelection={toggleTagSelection}
         saveActiveAlbums={saveActiveAlbums}
+        saveActiveDocProjects={saveActiveDocProjects}
         saveActiveTags={saveActiveTags}
         createNewAlbumInSelection={createNewAlbumInSelection}
+        createNewDocProjectInSelection={createNewDocProjectInSelection}
         createNewTagInSelection={createNewTagInSelection}
         loadAlbums={loadAlbums}
+        loadDocProjects={loadDocProjects}
         loadTags={loadTags}
         setMsg={setMsg}
         api={api}
