@@ -206,6 +206,10 @@ interface SettingsModalProps {
   setMsg: (msg: string) => void;
   setErr: (err: string) => void;
   api: string;
+  groupByTimeEnabled: boolean;
+  setGroupByTimeEnabled: (v: boolean) => void;
+  groupMode: 'month' | 'year';
+  setGroupMode: (mode: 'month' | 'year') => void;
 }
 
 export default function SettingsModal({
@@ -217,7 +221,11 @@ export default function SettingsModal({
   setMustChangePassword,
   setMsg,
   setErr,
-  api
+  api,
+  groupByTimeEnabled,
+  setGroupByTimeEnabled,
+  groupMode,
+  setGroupMode
 }: SettingsModalProps): React.JSX.Element | null {
   const { language, setLanguage, t } = useLanguage();
   const { theme: appearance, setTheme: setAppearance } = useTheme();
@@ -725,6 +733,35 @@ export default function SettingsModal({
                           { value: 'light', label: t('settings.themeLight') }
                         ]}
                         onChange={(val) => setAppearance(val as 'system' | 'dark' | 'light')}
+                      />
+                    </div>
+
+                    {/* Row 3: Group by Time */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingBottom: '14px',
+                      borderBottom: '1px solid var(--border-color)'
+                    }}>
+                      <span style={{ fontSize: '13.5px', color: 'var(--text-primary)', fontWeight: '500' }}>
+                        {t('settings.groupByTime') || 'Gom nhóm theo thời gian'}
+                      </span>
+                      <CustomSelect 
+                        value={!groupByTimeEnabled ? 'off' : groupMode}
+                        options={[
+                          { value: 'off', label: t('settings.groupTimeDisabled') || 'Tắt' },
+                          { value: 'month', label: t('dashboard.groupMonth') || 'Theo tháng' },
+                          { value: 'year', label: t('dashboard.groupYear') || 'Theo năm' }
+                        ]}
+                        onChange={(val) => {
+                          if (val === 'off') {
+                            setGroupByTimeEnabled(false);
+                          } else {
+                            setGroupByTimeEnabled(true);
+                            setGroupMode(val as 'month' | 'year');
+                          }
+                        }}
                       />
                     </div>
                   </div>
