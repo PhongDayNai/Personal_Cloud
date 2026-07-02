@@ -19,6 +19,7 @@ interface AssetGridProps {
   cardHandlers: (item: Asset, doubleClickCallback: () => void) => any;
   openPhoto: (id: string) => void;
   t: (key: string, replacements?: Record<string, string | number>) => string;
+  showViewAll?: boolean;
 }
 
 export default function AssetGrid({
@@ -34,7 +35,8 @@ export default function AssetGrid({
   api,
   cardHandlers,
   openPhoto,
-  t
+  t,
+  showViewAll = false
 }: AssetGridProps): React.JSX.Element {
   const router = useRouter();
   const { setTab, setDocCategoryFilter } = useCloud();
@@ -83,16 +85,18 @@ export default function AssetGrid({
                 <ChevronRight size={14} className={`groupHeaderChevron ${isOpen ? 'open' : ''}`} />
                 <span>{group}</span>
                 <span className="groupCount">{items.length}</span>
-                <button 
-                  className="groupGoBtn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleNavigate(group);
-                  }}
-                  title={t('actions.viewAll') || 'Xem tất cả'}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
-                </button>
+                {showViewAll && (
+                  <button 
+                    className="groupGoBtn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNavigate(group);
+                    }}
+                    title={t('actions.viewAll') || 'Xem tất cả'}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+                  </button>
+                )}
               </div>
             )}
 

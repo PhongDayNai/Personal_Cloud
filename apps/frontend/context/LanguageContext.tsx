@@ -184,6 +184,7 @@ const translations = {
     'actions.deleteForever': 'Xóa vĩnh viễn',
     'actions.save': 'Lưu',
     'actions.cancel': 'Hủy',
+    'actions.viewAll': 'Xem tất cả',
 
     // Dashboard Contents (Main UI)
     'dashboard.emptyPhotos': 'Không tìm thấy ảnh hoặc video nào.',
@@ -494,6 +495,7 @@ const translations = {
     'actions.deleteForever': 'Delete Forever',
     'actions.save': 'Save',
     'actions.cancel': 'Cancel',
+    'actions.viewAll': 'View all',
 
     // Dashboard Contents (Main UI)
     'dashboard.emptyPhotos': 'No photos or videos found.',

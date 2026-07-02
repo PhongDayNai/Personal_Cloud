@@ -498,6 +498,7 @@ export default function DashboardPage(): React.JSX.Element {
             cardHandlers={(item) => cardHandlers(item, () => openAll(item.id))}
             openPhoto={openAll}
             t={t}
+            showViewAll={true}
           />
         </>
       )}
