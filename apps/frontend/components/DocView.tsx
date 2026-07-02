@@ -7,6 +7,23 @@ import { Asset } from '../types';
 import { fmtBytes, docCategoryOf } from '../lib/utils';
 import { useCloud } from '../context/CloudContext';
 
+const ChevronRight = ({ size = 14, className = '' }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.5" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+    style={{ transition: 'transform 0.25s ease' }}
+  >
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
 interface DocViewProps {
   docTypeFilter: string;
   setDocTypeFilter: (filter: string) => void;
@@ -14,14 +31,16 @@ interface DocViewProps {
   selectedDocProject: string;
   docCollectionView: 'all' | 'recent' | 'trash';
   setDocCollectionView?: (view: 'all' | 'recent' | 'trash') => void;
-  docCategoryFilter?: string;
-  setDocCategoryFilter?: (filter: string) => void;
+  docCategoryFilter?: string[];
+  setDocCategoryFilter?: (filter: any) => void;
   docsGrouped: [string, Asset[]][];
   selectedIds: string[];
   cardHandlers: (item: Asset, doubleClickCallback: () => void) => any;
   openDoc: (id: string) => void;
   t: (key: string, replacements?: Record<string, string | number>) => string;
   groupByTimeEnabled?: boolean;
+  expandedGroups: Record<string, boolean>;
+  toggleGroup: (group: string) => void;
 }
 
 export default function DocView({
@@ -31,14 +50,16 @@ export default function DocView({
   selectedDocProject,
   docCollectionView,
   setDocCollectionView,
-  docCategoryFilter = 'all',
+  docCategoryFilter = ['all'],
   setDocCategoryFilter,
   docsGrouped,
   selectedIds,
   cardHandlers,
   openDoc,
   t,
-  groupByTimeEnabled = true
+  groupByTimeEnabled = true,
+  expandedGroups,
+  toggleGroup
 }: DocViewProps): React.JSX.Element {
   const { docCategoryCounts } = useCloud();
 
@@ -84,16 +105,31 @@ export default function DocView({
       {setDocCategoryFilter && (
         <div className="categoryFilterRow">
           {categoriesToShow.map((cat) => {
-            const isActive = docCategoryFilter === cat;
+            const isActive = docCategoryFilter.includes(cat);
             return (
               <button 
                 key={cat}
                 className={`catChip ${isActive ? 'active' : ''}`}
-                onClick={() => setDocCategoryFilter(cat)}
+                onClick={() => {
+                  if (cat === 'all') {
+                    setDocCategoryFilter(['all']);
+                  } else {
+                    setDocCategoryFilter((prev: string[]) => {
+                      const withoutAll = Array.isArray(prev) ? prev.filter(x => x !== 'all') : [];
+                      if (withoutAll.includes(cat)) {
+                        const next = withoutAll.filter(x => x !== cat);
+                        return next.length === 0 ? ['all'] : next;
+                      }
+                      return [...withoutAll, cat];
+                    });
+                  }
+                }}
               >
                 {cat === 'all' 
                   ? (t('sidebar.all') || 'Tất cả') 
-                  : (t('categories.' + cat) || cat.toUpperCase())}
+                  : isActive 
+                    ? `✓ ${t('categories.' + cat) || cat.toUpperCase()}` 
+                    : `+ ${t('categories.' + cat) || cat.toUpperCase()}`}
               </button>
             );
           })}
@@ -112,31 +148,56 @@ export default function DocView({
       {docCollectionView === 'trash' && <div className="hint">{t('dashboard.docsTrashHint')}</div>}
       {docsGrouped.length === 0 && <div className="hint">{t('dashboard.noDocsMatching')}</div>}
 
-      {docsGrouped.map(([group, items]) => (
-        <div key={group} className="docGroup" style={{ marginBottom: groupByTimeEnabled ? '24px' : '0' }}>
-          {groupByTimeEnabled && <div className="monthTitle">{group} · {items.length}</div>}
-          <div className="docGrid">
-            {items.map((d, idx) => {
-              const picked = selectedIds.includes(d.id);
-              return (
-                <div key={d.id} data-id={d.id} title={d.originalName} className={`docCard ${picked ? 'picked' : ''}`} {...cardHandlers(d, () => openDoc(d.id))} style={{ animationDelay: `${(idx % 24) * 0.02}s` }}>
-                  <div className="docIconWrapper">
-                    <DocIcon item={d} size={28} />
-                    <span className="docIconTypeBadge">{d.originalName.split('.').pop()?.toUpperCase() || 'FILE'}</span>
-                  </div>
-                  <div className="docTextWrap" style={{ flex: 1, minWidth: 0 }}>
-                    <div className="docName" title={d.originalName}>{d.originalName}</div>
-                    <div className="docMeta">
-                      {fmtBytes(d.size)}
-                    </div>
-                  </div>
-                  {picked && <div className="badge">✓</div>}
+      {docsGrouped.map(([group, items]) => {
+        const isMultiCategory = docCategoryFilter.length > 1 && !docCategoryFilter.includes('all');
+        const showGroupTitle = groupByTimeEnabled || isMultiCategory;
+        const isOpen = expandedGroups[group] ?? true;
+
+        return (
+          <div key={group} className="monthBlock">
+            {showGroupTitle && (
+              <div 
+                className="groupHeader" 
+                role="button" 
+                tabIndex={0}
+                onClick={() => toggleGroup(group)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { toggleGroup(group); } }}
+              >
+                <span className={`groupHeaderChevron ${isOpen ? 'open' : ''}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <ChevronRight size={14} />
+                </span>
+                <span>{group}</span>
+                <span className="groupCount">{items.length}</span>
+              </div>
+            )}
+
+            <div className={`gridCollapseWrapper ${isOpen ? 'open' : ''}`}>
+              <div className="gridCollapseWrapperInner">
+                <div className="docGrid">
+                  {items.map((d, idx) => {
+                    const picked = selectedIds.includes(d.id);
+                    return (
+                      <div key={d.id} data-id={d.id} title={d.originalName} className={`docCard ${picked ? 'picked' : ''}`} {...cardHandlers(d, () => openDoc(d.id))} style={{ animationDelay: `${(idx % 24) * 0.02}s` }}>
+                        <div className="docIconWrapper">
+                          <DocIcon item={d} size={28} />
+                          <span className="docIconTypeBadge">{d.originalName.split('.').pop()?.toUpperCase() || 'FILE'}</span>
+                        </div>
+                        <div className="docTextWrap" style={{ flex: 1, minWidth: 0 }}>
+                          <div className="docName" title={d.originalName}>{d.originalName}</div>
+                          <div className="docMeta">
+                            {fmtBytes(d.size)}
+                          </div>
+                        </div>
+                        {picked && <div className="badge">✓</div>}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
 
       <style jsx>{`
@@ -250,15 +311,67 @@ export default function DocView({
           margin-bottom: 16px;
           font-style: italic;
         }
-        .monthTitle {
-          font-size: 15px;
-          font-weight: 700;
-          margin-bottom: 12px;
-          color: var(--text-primary);
-          letter-spacing: -0.2px;
+        .monthBlock {
+          margin-bottom: 28px;
         }
-        .docGroup {
-          margin-bottom: 24px;
+        .groupHeader {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          border: 1px solid var(--border-color);
+          background: var(--bg-input);
+          color: var(--text-primary);
+          border-radius: 14px;
+          padding: 10px 14px;
+          margin-bottom: 14px;
+          cursor: pointer;
+          font-family: inherit;
+          font-weight: 700;
+          font-size: 13px;
+          transition: all 0.2s ease;
+          box-sizing: border-box;
+        }
+        .groupHeader:hover {
+          background: var(--bg-item-hover);
+          border-color: var(--border-input-focus);
+        }
+        .groupHeaderChevron {
+          display: inline-block;
+          font-size: 10px;
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          transform: rotate(0deg);
+          color: var(--text-muted);
+        }
+        .groupHeaderChevron.open {
+          transform: rotate(90deg);
+          color: var(--text-primary);
+        }
+        .groupCount {
+          margin-left: auto;
+          color: var(--text-muted);
+          font-size: 11px;
+          font-weight: 600;
+          background: var(--bg-item-hover);
+          padding: 2px 8px;
+          border-radius: 6px;
+        }
+        .gridCollapseWrapper {
+          display: grid;
+          grid-template-rows: 0fr;
+          transition: grid-template-rows 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, margin-top 0.35s ease;
+          opacity: 0;
+          visibility: hidden;
+          margin-top: 0;
+        }
+        .gridCollapseWrapper.open {
+          grid-template-rows: 1fr;
+          opacity: 1;
+          visibility: visible;
+          margin-top: 10px;
+        }
+        .gridCollapseWrapperInner {
+          min-height: 0;
         }
         .docGrid {
           display: grid;

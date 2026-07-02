@@ -19,8 +19,8 @@ interface SidebarProps {
   trashedDocs: Asset[];
   docCollectionView: 'all' | 'recent' | 'trash';
   setDocCollectionView: (view: 'all' | 'recent' | 'trash') => void;
-  docCategoryFilter: string;
-  setDocCategoryFilter: (filter: string) => void;
+  docCategoryFilter: string[];
+  setDocCategoryFilter: (filter: any) => void;
   setSelectedDocProject: (project: string) => void;
   albumsExpanded: boolean;
   setAlbumsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
