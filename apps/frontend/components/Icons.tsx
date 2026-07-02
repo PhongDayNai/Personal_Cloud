@@ -233,6 +233,95 @@ export const DocOther = ({ size = 24, ...props }: IconProps) => (
   </svg>
 );
 
+export const DocEbook = ({ size = 24, ...props }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    <line x1="8" y1="6" x2="16" y2="6" />
+    <line x1="8" y1="10" x2="16" y2="10" />
+  </svg>
+);
+
+export const DocDatabase = ({ size = 24, ...props }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <ellipse cx="12" cy="5" rx="9" ry="3" />
+    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+    <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
+  </svg>
+);
+
+export const DocInstaller = ({ size = 24, ...props }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <polyline points="8 16 12 20 16 16" />
+    <line x1="12" y1="12" x2="12" y2="20" />
+  </svg>
+);
+
+export const DocDiskImage = ({ size = 24, ...props }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+export const DocFont = ({ size = 24, ...props }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <polyline points="4 7 4 4 20 4 20 7" />
+    <line x1="9" y1="20" x2="15" y2="20" />
+    <line x1="12" y1="4" x2="12" y2="20" />
+  </svg>
+);
+
+export const DocCertificate = ({ size = 24, ...props }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <circle cx="12" cy="11" r="3" />
+  </svg>
+);
+
+export const DocDesign = ({ size = 24, ...props }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" />
+    <circle cx="7.5" cy="10.5" r="2.5" />
+    <circle cx="11.5" cy="7.5" r="2.5" />
+    <circle cx="16.5" cy="9.5" r="2.5" />
+    <circle cx="15.5" cy="14.5" r="2.5" />
+  </svg>
+);
+
+export const DocCad = ({ size = 24, ...props }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+    <line x1="12" y1="22.08" x2="12" y2="12" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+export const DocExecutable = ({ size = 24, ...props }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <rect x="4" y="4" width="16" height="16" rx="2" />
+    <rect x="9" y="9" width="6" height="6" />
+    <line x1="9" y1="1" x2="9" y2="4" />
+    <line x1="15" y1="1" x2="15" y2="4" />
+    <line x1="9" y1="20" x2="9" y2="23" />
+    <line x1="15" y1="20" x2="15" y2="23" />
+    <line x1="20" y1="9" x2="23" y2="9" />
+    <line x1="20" y1="15" x2="23" y2="15" />
+    <line x1="1" y1="9" x2="4" y2="9" />
+    <line x1="1" y1="15" x2="4" y2="15" />
+  </svg>
+);
+
+export const DocConfig = ({ size = 24, ...props }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </svg>
+);
+
 export function DocIcon({ item, size = 24, ...props }: { item: Asset; size?: number; [key: string]: any }) {
   const cat = docCategoryOf(item);
   switch (cat) {
@@ -248,10 +337,30 @@ export function DocIcon({ item, size = 24, ...props }: { item: Asset; size?: num
       return <DocMarkdown size={size} style={{ color: '#c084fc' }} {...props} />; // Purple-400
     case 'text':
       return <DocText size={size} style={{ color: '#9ca3af' }} {...props} />; // Gray-400
+    case 'ebook':
+      return <DocEbook size={size} style={{ color: '#fbbf24' }} {...props} />; // Amber-400
+    case 'database':
+      return <DocDatabase size={size} style={{ color: '#eab308' }} {...props} />; // Yellow-500
     case 'archive':
       return <DocArchive size={size} style={{ color: '#a78bfa' }} {...props} />; // Violet-400
+    case 'installer':
+      return <DocInstaller size={size} style={{ color: '#3b82f6' }} {...props} />; // Blue-500
+    case 'disk-image':
+      return <DocDiskImage size={size} style={{ color: '#94a3b8' }} {...props} />; // Slate-400
+    case 'font':
+      return <DocFont size={size} style={{ color: '#2dd4bf' }} {...props} />; // Teal-400
+    case 'certificate':
+      return <DocCertificate size={size} style={{ color: '#f97316' }} {...props} />; // Orange-500
+    case 'design':
+      return <DocDesign size={size} style={{ color: '#f472b6' }} {...props} />; // Pink-400
+    case 'cad':
+      return <DocCad size={size} style={{ color: '#818cf8' }} {...props} />; // Indigo-400
+    case 'executable':
+      return <DocExecutable size={size} style={{ color: '#ef4444' }} {...props} />; // Red-500
     case 'code':
       return <DocCode size={size} style={{ color: '#22d3ee' }} {...props} />; // Cyan-400
+    case 'config':
+      return <DocConfig size={size} style={{ color: '#6b7280' }} {...props} />; // Gray-500
     default:
       return <DocOther size={size} style={{ color: '#9ca3af' }} {...props} />;
   }

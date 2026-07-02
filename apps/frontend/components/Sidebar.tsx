@@ -50,6 +50,8 @@ interface SidebarProps {
   activeWorkspace: { type: 'personal' } | { type: 'space'; id: string; name: string; spaceType: string };
   setActiveWorkspace: (ws: any) => void;
   spaces: any[];
+  photosCount?: number;
+  docsCount?: number;
 }
 
 import * as Icons from './Icons';
@@ -99,7 +101,9 @@ export default function Sidebar({
   t,
   activeWorkspace,
   setActiveWorkspace,
-  spaces
+  spaces,
+  photosCount,
+  docsCount
 }: SidebarProps): React.JSX.Element {
   const router = useRouter();
 
@@ -115,11 +119,11 @@ export default function Sidebar({
           </button>
 
           <button className={`navItem ${tab === 'photos' ? 'active' : ''}`} onClick={() => { setCollectionView('all'); setSelectedAlbum('all'); router.push('/cloud/photos'); }}>
-            <span className="ico"><Icons.Photos /></span><span>{t('sidebar.allPhotosVideos')}</span><span className="count">{basePhotoAssets.filter((x) => !x.isDeleted).length}</span>
+            <span className="ico"><Icons.Photos /></span><span>{t('sidebar.allPhotosVideos')}</span><span className="count">{photosCount ?? 0}</span>
           </button>
 
           <button className={`navItem ${tab === 'docs' ? 'active' : ''}`} onClick={() => { setDocCollectionView('all'); setDocCategoryFilter('all'); setSelectedDocProject('all'); router.push('/cloud/docs'); }}>
-            <span className="ico"><Icons.Documents /></span><span>{t('sidebar.documents')}</span><span className="count">{docs.length}</span>
+            <span className="ico"><Icons.Documents /></span><span>{t('sidebar.documents')}</span><span className="count">{docsCount ?? 0}</span>
           </button>
 
           <button className={`navItem ${tab === 'spaces' || tab === 'space' ? 'active' : ''}`} onClick={() => { router.push('/cloud/spaces'); }}>

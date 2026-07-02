@@ -108,7 +108,7 @@ export default function AssetGrid({
                     const srcPlay = `${api}/api/assets/_media/play/${a.id}`;
                     const picked = selectedIds.includes(a.id);
                     return (
-                      <div key={a.id} className={`tile ${picked ? 'picked' : ''} ${a.processingStatus === 'processing' ? 'tileProcessing' : ''}`} {...cardHandlers(a, () => openPhoto(a.id))} style={{ animationDelay: `${(idx % 24) * 0.02}s` }}>
+                      <div key={a.id} data-id={a.id} className={`tile ${picked ? 'picked' : ''} ${a.processingStatus === 'processing' ? 'tileProcessing' : ''}`} {...cardHandlers(a, () => openPhoto(a.id))} style={{ animationDelay: `${(idx % 24) * 0.02}s` }}>
                         {a.type === 'image' ? (
                           <img src={srcOriginal} alt={a.originalName} className="thumb" />
                         ) : a.type === 'video' ? (

@@ -7,8 +7,39 @@ import AssetGrid from '../../../components/AssetGrid';
 import DocView from '../../../components/DocView';
 import SmartVideo from '../../../components/SmartVideo';
 import { Asset } from '../../../types';
-import { fmtBytes } from '../../../lib/utils';
+import { fmtBytes, docCategoryOf } from '../../../lib/utils';
 import * as Icons from '../../../components/Icons';
+
+function useGridColumns(containerRef: React.RefObject<HTMLDivElement | null>, minWidth: number, gap: number) {
+  const [columns, setColumns] = React.useState(3);
+
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleResize = (entries: ResizeObserverEntry[]) => {
+      for (const entry of entries) {
+        const width = entry.contentRect.width;
+        const colCount = Math.floor((width + gap) / (minWidth + gap));
+        setColumns(Math.max(3, colCount));
+      }
+    };
+
+    const observer = new ResizeObserver(handleResize);
+    observer.observe(container);
+
+    // Initial check
+    const initialWidth = container.getBoundingClientRect().width;
+    const colCount = Math.floor((initialWidth + gap) / (minWidth + gap));
+    setColumns(Math.max(3, colCount));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [containerRef, minWidth, gap]);
+
+  return columns;
+}
 
 export default function DashboardPage(): React.JSX.Element {
   const router = useRouter();
@@ -72,32 +103,56 @@ export default function DashboardPage(): React.JSX.Element {
     assets
   } = useCloud();
 
-  // Compute dashboard metrics from active assets
+  // Compute dashboard metrics from stats
+  const { stats } = useCloud();
+
   const dashboardStats = React.useMemo(() => {
-    const activeAssets = assets.filter(a => !a.isDeleted);
-    const photosVideos = activeAssets.filter(a => a.type === 'image' || a.type === 'video');
-    const documents = activeAssets.filter(a => a.type !== 'image' && a.type !== 'video');
-    const trashed = assets.filter(a => a.isDeleted);
-
-    const photosVideosCount = photosVideos.length;
-    const photosVideosSize = photosVideos.reduce((acc, a) => acc + (a.size || 0), 0);
-
-    const docsCount = documents.length;
-    const docsSize = documents.reduce((acc, a) => acc + (a.size || 0), 0);
-
-    const trashCount = trashed.length;
-    const trashSize = usage?.breakdown?.trashBytes || trashed.reduce((acc, a) => acc + (a.size || 0), 0);
-
     return {
-      photosVideosCount,
-      photosVideosSize,
-      docsCount,
-      docsSize,
+      photosVideosCount: stats?.counts?.photosCount || 0,
+      docsCount: stats?.counts?.docsCount || 0,
       spacesCount: spaces.length,
-      trashCount,
-      trashSize
+      trashCount: stats?.counts?.trashCount || 0,
+      trashSize: stats?.storage?.breakdown?.trashBytes || 0
     };
-  }, [assets, spaces, usage]);
+  }, [stats, spaces]);
+
+  const dashboardContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const photoCols = useGridColumns(dashboardContainerRef, 200, 16);
+  const docCols = useGridColumns(dashboardContainerRef, 280, 12);
+
+  const recentPhotos = React.useMemo(() => {
+    if (!stats?.recentPhotos) return [];
+    const totalCount = 3 * photoCols;
+    return stats.recentPhotos.slice(0, totalCount);
+  }, [stats, photoCols]);
+
+  const recentDocsData = React.useMemo(() => {
+    if (!stats?.recentDocs) return [];
+    
+    // 1. Tính thời gian tệp mới nhất của mỗi category hoạt động
+    const catLatestTime = Object.entries(stats.recentDocs).map(([category, files]) => {
+      const fileList = files as Asset[];
+      if (fileList.length === 0) return { category, latestTime: 0 };
+      const latestTime = Math.max(...fileList.map(f => new Date(f.uploadedAt || f.takenAt || 0).getTime()));
+      return { category, latestTime };
+    }).filter(c => c.latestTime > 0);
+    
+    // 2. Sắp xếp các category theo latestTime giảm dần và lấy tối đa 3 category hàng đầu
+    const topCategories = catLatestTime
+      .sort((a, b) => b.latestTime - a.latestTime)
+      .slice(0, 3)
+      .map(c => c.category);
+      
+    // 3. Với mỗi category hàng đầu, lấy docCols - 1 file đầu tiên để chừa 1 ô cuối cho nút Xem tất cả
+    const docFilesPerRow = docCols - 1;
+    return topCategories.map(category => {
+      const files = (stats.recentDocs[category] || []).slice(0, docFilesPerRow);
+      return {
+        category,
+        files
+      };
+    });
+  }, [stats, docCols]);
 
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -339,7 +394,7 @@ export default function DashboardPage(): React.JSX.Element {
       )}
 
       {tab === 'dashboard' && (
-        <>
+        <div ref={dashboardContainerRef}>
           <div className="pageHeader">
             <h1>{t('sidebar.dashboard') || 'Tổng quan'}</h1>
             <p>{t('dashboard.subtitle') || 'Xem và quản lý toàn bộ tệp tin, hình ảnh, tài liệu của bạn tại một nơi.'}</p>
@@ -408,31 +463,31 @@ export default function DashboardPage(): React.JSX.Element {
               {/* Quick Actions & Quick Stats Grid */}
               <div className="statsGrid">
                 {/* Photos & Videos Card */}
-                <div className="statCard clickableCard" onClick={() => setTab('photos')}>
+                <div className="statCard clickableCard" onClick={() => { setTab('photos'); router.push('/cloud/photos'); }}>
                   <div className="statIcon iconPhotos">
                     <Icons.Photos size={20} />
                   </div>
                   <div className="statInfo">
                     <h4>{t('sidebar.allPhotosVideos') || 'Ảnh & Video'}</h4>
                     <p className="statCount">{t('dashboard.photosVideosCount', { count: dashboardStats.photosVideosCount }) || `${dashboardStats.photosVideosCount} tệp`}</p>
-                    <p className="statSize">{fmtBytes(dashboardStats.photosVideosSize)}</p>
+                    <p className="statSize">{stats?.albums?.length || 0} album</p>
                   </div>
                 </div>
 
                 {/* Documents Card */}
-                <div className="statCard clickableCard" onClick={() => setTab('docs')}>
+                <div className="statCard clickableCard" onClick={() => { setTab('docs'); router.push('/cloud/docs'); }}>
                   <div className="statIcon iconDocs">
                     <Icons.Documents size={20} />
                   </div>
                   <div className="statInfo">
                     <h4>{t('sidebar.documents') || 'Tài liệu'}</h4>
                     <p className="statCount">{t('dashboard.docsCount', { count: dashboardStats.docsCount }) || `${dashboardStats.docsCount} tài liệu`}</p>
-                    <p className="statSize">{fmtBytes(dashboardStats.docsSize)}</p>
+                    <p className="statSize">{stats?.docProjects?.length || 0} tập tài liệu</p>
                   </div>
                 </div>
 
                 {/* Spaces Card */}
-                <div className="statCard clickableCard" onClick={() => setTab('spaces')}>
+                <div className="statCard clickableCard" onClick={() => { setTab('spaces'); router.push('/cloud/spaces'); }}>
                   <div className="statIcon iconSpaces">
                     <Icons.Spaces size={20} />
                   </div>
@@ -444,7 +499,7 @@ export default function DashboardPage(): React.JSX.Element {
                 </div>
 
                 {/* Trash Card */}
-                <div className="statCard clickableCard" onClick={() => setAllFilesCollectionView('trash')}>
+                <div className="statCard clickableCard" onClick={() => { setTab('photos'); setCollectionView('trash'); router.push('/cloud/photos'); }}>
                   <div className="statIcon iconTrash">
                     <Icons.Trash size={20} />
                   </div>
@@ -458,49 +513,100 @@ export default function DashboardPage(): React.JSX.Element {
             </div>
           </div>
 
-          <div className="viewTabs">
-            <button 
-              className={`tabBtn ${allFilesCollectionView === 'all' ? 'active' : ''}`}
-              onClick={() => setAllFilesCollectionView('all')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Icons.Folder size={14} />
-              {t('sidebar.all') || 'Tất cả'}
-            </button>
-            <button 
-              className={`tabBtn ${allFilesCollectionView === 'recent' ? 'active' : ''}`}
-              onClick={() => setAllFilesCollectionView('recent')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Icons.Flash size={14} />
-              {t('sidebar.recentlyAdded') || 'Mới thêm'}
-            </button>
-            <button 
-              className={`tabBtn ${allFilesCollectionView === 'trash' ? 'active' : ''}`}
-              onClick={() => setAllFilesCollectionView('trash')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Icons.Trash size={14} />
-              {t('sidebar.trashBin') || 'Thùng rác'}
-            </button>
+          {/* Recent Photos & Videos Section */}
+          <div className="recentSection">
+            <div className="recentSectionHeader">
+              <h2>Ảnh & video gần đây</h2>
+            </div>
+            {recentPhotos.length === 0 ? (
+              <div className="recentEmptyHint">Không có ảnh hoặc video nào gần đây.</div>
+            ) : (
+              <>
+                <div className="recentPhotosGrid" style={{ gridTemplateColumns: `repeat(${photoCols}, 1fr)` }}>
+                  {recentPhotos.map((a) => {
+                    const srcOriginal = `${api}/api/assets/_media/original/${a.id}`;
+                    const srcPlay = `${api}/api/assets/_media/play/${a.id}`;
+                    const picked = selectedIds.includes(a.id);
+                    return (
+                      <div key={a.id} data-id={a.id} className={`tile ${picked ? 'picked' : ''}`} {...cardHandlers(a, () => openAll(a.id))}>
+                        {a.type === 'image' ? (
+                          <img src={srcOriginal} alt={a.originalName} className="thumb" />
+                        ) : (
+                          <video src={srcPlay} className="thumb" muted preload="metadata" />
+                        )}
+                        <div className="caption">{a.originalName}</div>
+                        {picked && <div className="badge">✓</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="sectionFooter">
+                  <button className="viewAllBtn" onClick={() => { setTab('photos'); router.push('/cloud/photos'); }}>
+                    Xem tất cả ảnh & video &rarr;
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-          <AssetGrid
-            groupByTimeEnabled={groupByTimeEnabled}
-            setGroupByTimeEnabled={setGroupByTimeEnabled}
-            groupMode={groupMode}
-            setGroupMode={setGroupMode}
-            collectionView={allFilesCollectionView}
-            photoGroups={allActiveAssetsGrouped}
-            expandedGroups={expandedGroups}
-            toggleGroup={toggleGroup}
-            selectedIds={selectedIds}
-            api={api}
-            cardHandlers={(item) => cardHandlers(item, () => openAll(item.id))}
-            openPhoto={openAll}
-            t={t}
-            showViewAll={true}
-          />
-        </>
+
+          {/* Recent Documents Section */}
+          <div className="recentSection" style={{ marginTop: '32px' }}>
+            <div className="recentSectionHeader">
+              <h2>Tài liệu gần đây</h2>
+            </div>
+            {recentDocsData.length === 0 ? (
+              <div className="recentEmptyHint">Không có tài liệu nào gần đây.</div>
+            ) : (
+              <>
+                {recentDocsData.map(({ category, files }) => (
+                  <div className="recentDocRow" key={category}>
+                    <h3 className="docCategoryTitle">
+                      {t('categories.' + category) || category.toUpperCase()}
+                    </h3>
+                    <div className="recentDocsGrid" style={{ gridTemplateColumns: `repeat(${docCols}, 1fr)` }}>
+                      {files.map((d) => {
+                        const picked = selectedIds.includes(d.id);
+                        return (
+                          <div key={d.id} data-id={d.id} title={d.originalName} className={`docCard ${picked ? 'picked' : ''}`} {...cardHandlers(d, () => openAll(d.id))}>
+                            <div className="docIconWrapper">
+                              <Icons.DocIcon item={d} size={28} />
+                              <span className="docIconTypeBadge">{d.originalName.split('.').pop()?.toUpperCase() || 'FILE'}</span>
+                            </div>
+                            <div className="docTextWrap" style={{ flex: 1, minWidth: 0 }}>
+                              <div className="docName" title={d.originalName}>{d.originalName}</div>
+                              <div className="docMeta">{fmtBytes(d.size)}</div>
+                            </div>
+                            {picked && <div className="badge">✓</div>}
+                          </div>
+                        );
+                      })}
+                      {/* Card Xem tất cả loại tài liệu này ở cuối dòng */}
+                      <div 
+                        className="docCard viewAllDocCard"
+                        title={`Xem tất cả tệp ${t('categories.' + category) || category.toUpperCase()}`}
+                        onClick={() => {
+                          setTab('docs');
+                          setDocCategoryFilter(category);
+                          router.push('/cloud/docs');
+                        }}
+                      >
+                        <div className="viewAllDocContent">
+                          <span className="viewAllDocText">Xem tất cả tệp {t('categories.' + category) || category.toUpperCase()}</span>
+                          <span className="viewAllDocArrow">&rarr;</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="sectionFooter">
+                  <button className="viewAllBtn" onClick={() => { setTab('docs'); setDocCategoryFilter('all'); router.push('/cloud/docs'); }}>
+                    Xem tất cả tài liệu &rarr;
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {tab === 'spaces' && (
@@ -681,7 +787,6 @@ export default function DashboardPage(): React.JSX.Element {
       {hasMore && (
         tab === 'photos' || 
         tab === 'docs' || 
-        tab === 'dashboard' || 
         (tab === 'space' && activeWorkspace.type === 'space' && activeWorkspace.spaceType === 'project')
       ) && (
         <div ref={sentinelRef} className="sentinelContainer">
@@ -704,6 +809,221 @@ export default function DashboardPage(): React.JSX.Element {
           display: flex;
           flex-direction: column;
           gap: 16px;
+        }
+        .recentSection {
+          margin-top: 32px;
+        }
+        .recentSectionHeader {
+          margin-bottom: 16px;
+        }
+        .recentSectionHeader h2 {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin: 0;
+        }
+        .recentEmptyHint {
+          font-size: 13px;
+          color: var(--text-muted);
+          font-style: italic;
+          padding: 16px 0;
+        }
+        .recentPhotosGrid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 16px;
+        }
+        .recentDocsGrid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 12px;
+        }
+        .recentDocRow {
+          margin-bottom: 24px;
+        }
+        .docCategoryTitle {
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--text-secondary);
+          margin: 16px 0 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .sectionFooter {
+          display: flex;
+          justify-content: center;
+          margin-top: 20px;
+        }
+        .viewAllBtn {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid var(--border-tile);
+          color: var(--button-primary-bg);
+          padding: 10px 28px;
+          border-radius: 99px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .viewAllBtn:hover {
+          background: var(--button-primary-bg);
+          color: var(--button-primary-text);
+          border-color: var(--button-primary-bg);
+          box-shadow: 0 4px 12px var(--button-primary-shadow);
+          transform: translateY(-1px);
+        }
+        :global([data-theme='light']) .viewAllBtn {
+          background: rgba(0, 0, 0, 0.02);
+        }
+        :global([data-theme='light']) .viewAllBtn:hover {
+          background: var(--button-primary-bg);
+          color: var(--button-primary-text);
+        }
+        
+        .tile {
+          background: var(--bg-tile);
+          border: 1px solid var(--border-tile);
+          border-radius: 16px;
+          overflow: hidden;
+          cursor: pointer;
+          position: relative;
+          box-shadow: var(--card-shadow);
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          content-visibility: auto;
+          contain-intrinsic-size: 200px 222px;
+        }
+        .tile:hover {
+          border-color: var(--border-tile-hover);
+          transform: translateY(-4px);
+          box-shadow: var(--card-shadow-hover);
+        }
+        .tile:hover .thumb {
+          transform: scale(1.04);
+        }
+        .thumb {
+          width: 100%;
+          height: 160px;
+          object-fit: cover;
+          display: block;
+          background: #000;
+          transition: transform 0.25s ease;
+        }
+        .caption {
+          padding: 10px 12px;
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          border-top: 1px solid var(--caption-border);
+        }
+        .tile:hover .caption {
+          color: var(--text-primary);
+        }
+        
+        .docCard {
+          background: var(--bg-tile);
+          border: 1px solid var(--border-tile);
+          border-radius: 14px;
+          padding: 14px;
+          cursor: pointer;
+          position: relative;
+          box-shadow: var(--card-shadow);
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          content-visibility: auto;
+          contain-intrinsic-size: 280px 74px;
+          min-width: 0;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .docCard:hover {
+          transform: translateY(-2px);
+          border-color: var(--border-tile-hover);
+          box-shadow: var(--card-shadow-hover);
+        }
+        .docName {
+          font-weight: 600;
+          color: var(--text-primary);
+          margin-bottom: 4px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          font-size: 14px;
+          width: 100%;
+        }
+        .docMeta {
+          font-size: 11px;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
+        .docIconWrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid var(--border-tile);
+          border-radius: 10px;
+          flex-shrink: 0;
+        }
+        .docIconTypeBadge {
+          position: absolute;
+          bottom: -4px;
+          background: var(--border-tile-hover);
+          color: var(--text-primary);
+          font-size: 7.5px;
+          font-weight: 800;
+          padding: 1px 3.5px;
+          border-radius: 4px;
+          border: 1px solid var(--border-tile);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          letter-spacing: 0.2px;
+          pointer-events: none;
+          line-height: 1;
+        }
+        
+        .viewAllDocCard {
+          background: linear-gradient(135deg, rgba(59, 130, 246, 0.04), rgba(139, 92, 246, 0.04)) !important;
+          border: 1px dashed var(--button-primary-bg) !important;
+          justify-content: center !important;
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+        }
+        .viewAllDocContent {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          color: var(--button-primary-bg);
+          font-weight: 700;
+          font-size: 13px;
+          width: 100%;
+          min-width: 0;
+          overflow: hidden;
+        }
+        .viewAllDocText {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          flex: 1;
+          text-align: center;
+        }
+        .viewAllDocArrow {
+          transition: transform 0.2s ease;
+          flex-shrink: 0;
+        }
+        .viewAllDocCard:hover .viewAllDocArrow {
+          transform: translateX(4px);
         }
         .sentinelContainer {
           display: flex;

@@ -92,7 +92,8 @@ export default function CloudLayoutWrapper({ children }: { children: React.React
     mustChangePassword, setMustChangePassword, setErr,
     groupByTimeEnabled, setGroupByTimeEnabled, groupMode, setGroupMode,
     showCreateSpaceModal, setShowCreateSpaceModal, handleCreateSpace,
-    allActiveAssets, spaceAssets
+    allActiveAssets, spaceAssets, stats,
+    showScrollAnchorBtn, scrollToAnchor
   } = useCloud();
 
   return (
@@ -116,9 +117,11 @@ export default function CloudLayoutWrapper({ children }: { children: React.React
         setSelectedDocProject={setSelectedDocProject}
         albumsExpanded={albumsExpanded}
         setAlbumsExpanded={setAlbumsExpanded}
-        availableAlbums={availableAlbums}
+        availableAlbums={albums.map(a => [a.name, a.count] as [string, number])}
         docProjectsExpanded={docProjectsExpanded}
         setDocProjectsExpanded={setDocProjectsExpanded}
+        photosCount={stats?.counts?.photosCount || 0}
+        docsCount={stats?.counts?.docsCount || 0}
         selectedDocProject={selectedDocProject}
         docProjects={docProjects}
         docsBase={docsBase}
@@ -239,7 +242,54 @@ export default function CloudLayoutWrapper({ children }: { children: React.React
         onCreate={handleCreateSpace}
       />
 
+      {showScrollAnchorBtn && (
+        <button className="scrollAnchorBtn" onClick={scrollToAnchor}>
+          <span>↓ Tiếp tục xem từ tệp tin cũ</span>
+        </button>
+      )}
+
       <style jsx>{`
+        .scrollAnchorBtn {
+          position: fixed;
+          bottom: 24px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: var(--button-primary-bg);
+          color: var(--button-primary-text);
+          border: none;
+          padding: 10px 20px;
+          border-radius: 99px;
+          font-weight: 700;
+          font-size: 13px;
+          box-shadow: 0 8px 24px var(--button-primary-shadow);
+          cursor: pointer;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          animation: floatBounce 2s infinite ease-in-out;
+          transition: all 0.2s ease;
+        }
+        .scrollAnchorBtn:hover {
+          transform: translateX(-50%) translateY(-2px);
+          box-shadow: 0 12px 30px var(--button-primary-shadow);
+        }
+        @keyframes floatBounce {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50% { transform: translateX(-50%) translateY(-6px); }
+        }
+
+        /* Glow Highlight Effect */
+        :global(.glowHighlight) {
+          position: relative;
+          animation: glowHighlightPulse 0.8s ease-in-out 3;
+          z-index: 10;
+        }
+        @keyframes glowHighlightPulse {
+          0%, 100% { box-shadow: none; border-color: var(--border-tile); }
+          50% { box-shadow: 0 0 20px var(--button-primary-bg); border-color: var(--button-primary-bg); }
+        }
+
         .shell {
           display: grid;
           grid-template-columns: 260px 1fr;

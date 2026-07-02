@@ -5,6 +5,7 @@ import * as Icons from './Icons';
 import { DocIcon } from './Icons';
 import { Asset } from '../types';
 import { fmtBytes, docCategoryOf } from '../lib/utils';
+import { useCloud } from '../context/CloudContext';
 
 interface DocViewProps {
   docTypeFilter: string;
@@ -39,6 +40,14 @@ export default function DocView({
   t,
   groupByTimeEnabled = true
 }: DocViewProps): React.JSX.Element {
+  const { docCategoryCounts } = useCloud();
+
+  const categoriesToShow = ['all', 'pdf', 'word', 'excel', 'powerpoint', 'markdown', 'text', 'ebook', 'database', 'archive', 'installer', 'disk-image', 'font', 'certificate', 'design', 'cad', 'executable', 'code', 'config', 'other'].filter(cat => {
+    if (cat === 'all') return true;
+    const count = docCategoryCounts?.get(cat) || 0;
+    return count > 0;
+  });
+
   return (
     <section className="contentPane">
       {/* Tab Filter (Active vs Trash) */}
@@ -74,7 +83,7 @@ export default function DocView({
       {/* Category Chips Filter */}
       {setDocCategoryFilter && (
         <div className="categoryFilterRow">
-          {['all', 'pdf', 'word', 'excel', 'markdown', 'text', 'archive', 'code', 'other'].map((cat) => {
+          {categoriesToShow.map((cat) => {
             const isActive = docCategoryFilter === cat;
             return (
               <button 
@@ -110,13 +119,13 @@ export default function DocView({
             {items.map((d, idx) => {
               const picked = selectedIds.includes(d.id);
               return (
-                <div key={d.id} className={`docCard ${picked ? 'picked' : ''}`} {...cardHandlers(d, () => openDoc(d.id))} style={{ animationDelay: `${(idx % 24) * 0.02}s` }}>
+                <div key={d.id} data-id={d.id} title={d.originalName} className={`docCard ${picked ? 'picked' : ''}`} {...cardHandlers(d, () => openDoc(d.id))} style={{ animationDelay: `${(idx % 24) * 0.02}s` }}>
                   <div className="docIconWrapper">
                     <DocIcon item={d} size={28} />
                     <span className="docIconTypeBadge">{d.originalName.split('.').pop()?.toUpperCase() || 'FILE'}</span>
                   </div>
                   <div className="docTextWrap" style={{ flex: 1, minWidth: 0 }}>
-                    <div className="docName">{d.originalName}</div>
+                    <div className="docName" title={d.originalName}>{d.originalName}</div>
                     <div className="docMeta">
                       {fmtBytes(d.size)}
                     </div>
@@ -172,13 +181,11 @@ export default function DocView({
           padding-bottom: 8px;
           margin-bottom: 16px;
           scroll-behavior: smooth;
+          flex-wrap: nowrap;
+          -webkit-overflow-scrolling: touch;
         }
         .categoryFilterRow::-webkit-scrollbar {
-          height: 4px;
-        }
-        .categoryFilterRow::-webkit-scrollbar-thumb {
-          background: var(--border-color);
-          border-radius: 99px;
+          display: none;
         }
         .catChip {
           flex-shrink: 0;
@@ -273,6 +280,9 @@ export default function DocView({
           gap: 12px;
           content-visibility: auto;
           contain-intrinsic-size: 280px 74px;
+          min-width: 0;
+          width: 100%;
+          box-sizing: border-box;
         }
         .docCard:hover {
           transform: translateY(-2px);
@@ -291,6 +301,7 @@ export default function DocView({
           overflow: hidden;
           text-overflow: ellipsis;
           font-size: 14px;
+          width: 100%;
         }
         .docMeta {
           font-size: 11px;
