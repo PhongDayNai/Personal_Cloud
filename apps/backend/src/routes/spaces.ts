@@ -77,13 +77,45 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// 2b. PUT cập nhật thông tin không gian con
+router.put('/:spaceId', requireAuth, checkSpaceOwnership, async (req: Request, res: Response) => {
+  const { spaceId } = req.params;
+  const { name, description, type } = req.body || {};
+  
+  if (!name || !type) {
+    return res.status(400).json({ message: 'Thiếu tên hoặc loại không gian con' });
+  }
+
+  if (!['journal', 'collection', 'project'].includes(type)) {
+    return res.status(400).json({ message: 'Loại không gian con không hợp lệ' });
+  }
+
+  try {
+    const result = await db.query(
+      `UPDATE spaces 
+       SET name = $1, description = $2, type = $3
+       WHERE id = $4 AND owner_id = $5 
+       RETURNING *`,
+      [name.trim(), description ? description.trim() : null, type, spaceId, req.user?.sub]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy không gian con này hoặc bạn không có quyền chỉnh sửa' });
+    }
+
+    return res.json({ ok: true, space: result.rows[0] });
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
 // 3. GET danh sách bài đăng thuộc không gian con
 router.get('/:spaceId/posts', requireAuth, checkSpaceOwnership, async (req: Request, res: Response) => {
   const { spaceId } = req.params;
   try {
     const sql = `
       SELECT p.id AS post_id, p.space_id, p.caption, p.created_at AS post_created_at, p.user_id AS post_user_id,
-             a.id AS asset_id, a.original_name, a.mime, a.size, a.rel_path, a.play_rel_path, a.hls_rel_path, a.processing_status, a.type AS asset_type
+             a.id AS asset_id, a.original_name, a.mime, a.size, a.rel_path, a.play_rel_path, a.hls_rel_path, a.processing_status, a.type AS asset_type, a.ext
       FROM posts p
       LEFT JOIN post_assets pa ON p.id = pa.post_id
       LEFT JOIN assets a ON pa.asset_id = a.id
@@ -114,7 +146,8 @@ router.get('/:spaceId/posts', requireAuth, checkSpaceOwnership, async (req: Requ
           playRelPath: row.play_rel_path,
           hlsRelPath: row.hls_rel_path,
           processingStatus: row.processing_status,
-          type: row.asset_type
+          type: row.asset_type,
+          ext: row.ext
         });
       }
     }
@@ -187,7 +220,7 @@ router.post('/:spaceId/posts', requireAuth, checkSpaceOwnership, upload.array('f
 
     // D. Trả về bài đăng mới hoàn chỉnh
     const postAssetsRes = await db.query(
-      'SELECT id, original_name, mime, size, rel_path, play_rel_path, hls_rel_path, processing_status, type FROM assets WHERE id = ANY($1)',
+      'SELECT id, original_name, mime, size, rel_path, play_rel_path, hls_rel_path, processing_status, type, ext FROM assets WHERE id = ANY($1)',
       [linkedAssetIds]
     );
 
@@ -208,7 +241,8 @@ router.post('/:spaceId/posts', requireAuth, checkSpaceOwnership, upload.array('f
           playRelPath: row.play_rel_path,
           hlsRelPath: row.hls_rel_path,
           processingStatus: row.processing_status,
-          type: row.type
+          type: row.type,
+          ext: row.ext
         }))
       }
     });

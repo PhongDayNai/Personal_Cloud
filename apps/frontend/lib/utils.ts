@@ -24,7 +24,10 @@ export function docTypeOf(item: Asset): string {
 
 export function docCategoryOf(item: Asset): 'pdf' | 'word' | 'excel' | 'powerpoint' | 'markdown' | 'text' | 'ebook' | 'database' | 'archive' | 'installer' | 'disk-image' | 'font' | 'certificate' | 'design' | 'cad' | 'executable' | 'code' | 'config' | 'other' {
   const filename = (item.originalName || '').toLowerCase();
-  const ext = (item.ext || '').toLowerCase().replace(/^\./, '');
+  let ext = (item.ext || '').toLowerCase().replace(/^\./, '');
+  if (!ext && filename.includes('.')) {
+    ext = filename.split('.').pop() || '';
+  }
   const mime = (item.mime || '').toLowerCase();
   const size = item.size || 0;
 
