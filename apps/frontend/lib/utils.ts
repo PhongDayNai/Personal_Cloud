@@ -22,68 +22,68 @@ export function docTypeOf(item: Asset): string {
   return 'no-extension';
 }
 
-export function docCategoryOf(item: Asset): 'pdf' | 'word' | 'excel' | 'powerpoint' | 'markdown' | 'text' | 'archive' | 'code' | 'other' {
+export function docCategoryOf(item: Asset): 'pdf' | 'word' | 'excel' | 'powerpoint' | 'markdown' | 'text' | 'ebook' | 'database' | 'archive' | 'installer' | 'disk-image' | 'font' | 'certificate' | 'design' | 'cad' | 'executable' | 'code' | 'config' | 'other' {
   const filename = (item.originalName || '').toLowerCase();
   const ext = (item.ext || '').toLowerCase().replace(/^\./, '');
   const mime = (item.mime || '').toLowerCase();
+  const size = item.size || 0;
 
-  // 1. Kiểm tra các file cấu hình / build đặc biệt không có extension hoặc có cấu trúc tên code đặc trưng (.env.*, .*rc, .*ignore)
-  const specialCodeFiles = ['dockerfile', 'makefile', 'jenkinsfile', 'vagrantfile', 'gemfile', 'rakefile', 'procfile', 'caddyfile', 'nginx.conf'];
-  if (
-    specialCodeFiles.includes(filename) || 
-    specialCodeFiles.some(f => filename.endsWith(f)) ||
-    filename.startsWith('.env') ||
-    filename.includes('.env.') ||
-    ext.endsWith('rc') ||
-    ext.endsWith('ignore') ||
-    ['mod', 'sum', 'podspec', 'gemspec'].includes(ext)
-  ) return 'code';
-
-  // 2. Định nghĩa danh sách extension đầy đủ cho Code (hơn 80 định dạng ngôn ngữ/config phổ biến)
-  const codeExtensions = [
-    // Web & Frontend
-    'html', 'htm', 'css', 'scss', 'sass', 'less', 'js', 'jsx', 'ts', 'tsx', 'vue', 'svelte', 'astro', 'elm', 'graphql', 'gql', 'wasm', 'wat',
-    // Languages & Scripts
-    'py', 'pyw', 'java', 'kt', 'kts', 'rb', 'rbw', 'pl', 'pm', 'php', 'go', 'rs', 'c', 'cpp', 'cc', 'cxx', 'h', 'hpp', 'cs', 'fs', 'fsx', 'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd', 'awk', 'sed',
-    // Academics & Functional
-    'r', 'rmd', 'ipynb', 'lua', 'scala', 'groovy', 'clj', 'cljs', 'cljc', 'edn', 'ex', 'exs', 'erl', 'hrl', 'hs', 'pas', 'pp', 'f', 'f90', 'm', 'mm', 'swift', 'dart', 'sol',
-    // Config & DevOps & Build
-    'json', 'jsonld', 'xml', 'yaml', 'yml', 'toml', 'ini', 'conf', 'config', 'properties', 'gradle', 'sql', 'proto', 'thrift', 'env', 'lock'
+  // 1. Kiểm tra config filenames đặc thù trước
+  const configFilenames = [
+    'dockerfile', 'containerfile', 'makefile', 'cmakelists.txt',
+    '.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
+    '.env', '.env.local', '.env.production', '.env.development', '.env.test',
+    'package-lock.json', 'package.json', 'tsconfig.json', 'jsconfig.json',
+    'composer.json', 'composer.lock', 'cargo.toml', 'cargo.lock',
+    'go.mod', 'go.sum', 'gemfile', 'gemfile.lock', 'podfile', 'podfile.lock',
+    'jenkinsfile', 'procfile', 'vagrantfile', 'brewfile', 'tiltfile',
+    'taskfile.yml', 'pnpm-workspace.yaml', 'docker-compose.yml', 'docker-compose.yaml',
+    'compose.yaml', 'compose.yml', 'kustomization.yaml', 'chart.yaml', 'values.yaml'
   ];
 
-  // 3. Kiểm tra nhóm Code trước để các file mã nguồn có mime bắt đầu bằng "text/..." không bị nhận nhầm thành Văn bản (text)
-  if (
-    codeExtensions.includes(ext) ||
-    mime.startsWith('text/x-') ||
-    mime.includes('javascript') ||
-    mime.includes('typescript') ||
-    mime.includes('python') ||
-    mime.includes('x-php') ||
-    mime.includes('x-sh') ||
-    mime.includes('yaml') ||
-    mime.includes('json') ||
-    mime.includes('xml') ||
-    mime.includes('html') ||
-    mime.includes('css') ||
-    mime.includes('code') ||
-    mime.includes('script')
-  ) return 'code';
+  if (configFilenames.includes(filename)) return 'config';
 
-  // 4. Kiểm tra các nhóm tài liệu thông dụng khác
-  if (ext === 'pdf' || mime.includes('pdf')) return 'pdf';
-  
-  if (['doc', 'docx', 'docm', 'dotx', 'odt', 'pages', 'rtf'].includes(ext) || mime.includes('word') || mime.includes('officedocument.wordprocessingml')) return 'word';
-  
-  if (['xls', 'xlsx', 'xlsm', 'xlsb', 'csv', 'tsv', 'ods', 'numbers'].includes(ext) || mime.includes('excel') || mime.includes('spreadsheet')) return 'excel';
-  
-  if (['ppt', 'pptx', 'pptm', 'ppsx', 'odp', 'key'].includes(ext) || mime.includes('presentation') || mime.includes('powerpoint')) return 'powerpoint';
-  
-  if (['md', 'markdown', 'mdx'].includes(ext) || mime.includes('markdown') || mime.includes('mdx')) return 'markdown';
-  
-  if (['txt', 'log'].includes(ext) || mime.startsWith('text/')) return 'text';
-  
-  if (['zip', 'rar', '7z', 'tar', 'gz', 'tgz', 'bz2', 'xz', 'iso', 'dmg', 'apk', 'jar', 'war', 'cab'].includes(ext) || mime.includes('zip') || mime.includes('compressed')) return 'archive';
-  
+  // 2. Định nghĩa hằng số extensions tĩnh của các category
+  const categories: Record<string, string[]> = {
+    pdf: ['pdf'],
+    word: ['doc', 'docx', 'docm', 'dotx', 'odt', 'pages', 'rtf'],
+    excel: ['xls', 'xlsx', 'xlsm', 'xlsb', 'csv', 'tsv', 'ods', 'numbers'],
+    powerpoint: ['ppt', 'pptx', 'pptm', 'ppsx', 'odp'], // .key được xử lý động riêng biệt
+    markdown: ['md', 'markdown', 'mdx'],
+    text: ['txt', 'log'],
+    ebook: ['epub', 'azw', 'azw1', 'azw3', 'azw4', 'azw8', 'kfx', 'tpz', 'mobi', 'prc', 'fb2', 'pdb', 'lrf', 'lrx', 'lit', 'djvu', 'djv', 'cbz', 'cbr', 'cb7', 'cbt', 'cba', 'ibooks', 'xeb'],
+    database: ['db', 'db3', 'sqlite', 'sqlite3', 'sqlite2', 'sqlitedb', 'mdb', 'accdb', 'dbf', 'fpt', 'cdx', 'ndf', 'ldf', 'frm', 'ibd', 'myd', 'myi', 'dump', 'ora', 'dbs', 'fdb', 'gdb', 'dbm', 'realm', 'mdbx', 'ldb', 'rdb', 'aof', 'mv.db', 'h2.db', 'duckdb', 'parquet', 'orc', 'feather', 'arrow', 'gpkg', 'sst'],
+    archive: ['zip', 'zipx', 'rar', '7z', 'tar', 'tgz', 'tbz', 'tbz2', 'txz', 'tzst', 'tlz', 'tlz4', 'taz', 'gz', 'bz2', 'xz', 'lz', 'lz4', 'lzma', 'zst', 'br', 'Z', 'cpio', 'ar', 'ace', 'arc', 'lzh', 'lha', 'zoo', 'sit', 'sitx'],
+    installer: ['apk', 'aab', 'xapk', 'ipa', 'exe', 'msi', 'msix', 'msixbundle', 'appx', 'appxbundle', 'appinstaller', 'pkg', 'mpkg', 'deb', 'rpm', 'snap', 'flatpak', 'appimage', 'run', 'bin', 'jar', 'war', 'ear', 'whl', 'egg', 'crx', 'xpi', 'vsix'],
+    'disk-image': ['iso', 'img', 'ima', 'toast', 'nrg', 'mds', 'ccd', 'cue', 'cdi', 'daa', 'uif', 'wim', 'esd', 'dmg', 'vdi', 'vhd', 'vhdx', 'vmdk', 'qcow', 'qcow2', 'ova', 'ovf', 'hdd', 'mdf'], // .cue được giữ ở đây
+    font: ['ttf', 'ttc', 'otf', 'otc', 'woff', 'woff2', 'eot', 'fon', 'fnt', 'bdf', 'pcf', 'pfb', 'pfm', 'afm', 'ufo'],
+    certificate: ['pem', 'crt', 'cer', 'der', 'csr', 'key', 'pub', 'pk8', 'pkcs8', 'p7b', 'p7c', 'p7s', 'p8', 'p10', 'p12', 'pfx', 'p11', 'jks', 'keystore', 'truststore', 'bks', 'bcfks', 'ppk', 'gpg', 'pgp', 'gpgsig', 'asc', 'sig', 'p7m', 'crl', 'cat', 'mobileprovision', 'spc'], // .key xử lý động
+    design: ['psd', 'psb', 'ai', 'indd', 'indt', 'idml', 'xd', 'eps', 'fig', 'sketch', 'xcf', 'kra', 'svg', 'cdr', 'cmx', 'afdesign', 'afphoto', 'afpub', 'canva', 'clip', 'sai', 'sai2'],
+    cad: ['dwg', 'dxf', 'dwt', 'step', 'stp', 'iges', 'igs', 'stl', 'fbx', '3ds', 'max', 'blend', 'glb', 'gltf', 'dae', 'abc', 'usd', 'usda', 'usdc', 'usdz', '3dm', 'skp', 'sldprt', 'sldasm', 'slddrw', 'ipt', 'iam', 'idw', 'catpart', 'catproduct', 'catdrawing', 'prt', 'x_t', 'x_b', 'sat', 'sab', 'ifc', 'rvt', 'rfa', 'scad', 'ply', 'las', 'laz', 'obj'],
+    executable: ['dll', 'com', 'scr', 'cpl', 'ocx', 'drv', 'sys', 'mui', 'so', 'out', 'elf', 'ko', 'dylib', 'app', 'bundle', 'o', 'a', 'lib', 'lo', 'la', 'class', 'pyc', 'pyo', 'ni.dll', 'wasm'],
+    code: [
+      'c', 'cc', 'cp', 'cpp', 'cxx', 'c++', 'h', 'hh', 'hp', 'hpp', 'hxx', 'h++', 'inl', 'ipp', 'tpp', 'cs', 'vb', 'fs', 'fsi', 'fsx', 'java', 'kt', 'kts', 'scala', 'sc', 'groovy', 'gvy', 'gy', 'gsh', 'go', 'rs', 'zig', 'swift', 'm', 'mm', 'dart', 'js', 'mjs', 'cjs', 'jsx', 'ts', 'mts', 'cts', 'tsx', 'html', 'htm', 'xhtml', 'css', 'scss', 'sass', 'less', 'styl', 'vue', 'svelte', 'astro', 'php', 'php3', 'php4', 'php5', 'phtml', 'py', 'pyw', 'pyi', 'pyx', 'pxd', 'pxi', 'ipynb', 'rb', 'rbw', 'rake', 'pl', 'pm', 't', 'lua', 'r', 'rmd', 'jl', 'hs', 'lhs', 'ml', 'mli', 'elm', 'erl', 'hrl', 'ex', 'exs', 'clj', 'cljs', 'cljc', 'edn', 'lisp', 'lsp', 'el', 'scm', 'ss', 'nim', 'nims', 'cr', 'v', 'vsh', 'd', 'adb', 'ads', 'pas', 'pp', 'lpr', 'f', 'f77', 'f90', 'f95', 'f03', 'f08', 'cob', 'cbl', 'asm', 's', 'S', 'sh', 'bash', 'zsh', 'fish', 'ksh', 'csh', 'tcsh', 'ps1', 'psm1', 'psd1', 'bat', 'cmd', 'awk', 'sed', 'sql', 'psql', 'pgsql', 'graphql', 'gql', 'proto', 'thrift', 'sol', 'move', 'wat', 'pro', 'prolog', 'gd', 'glsl', 'vert', 'frag', 'geom', 'comp', 'tesc', 'tese', 'bicep'
+    ],
+    config: [
+      'json', 'json5', 'jsonc', 'jsonld', 'xml', 'xsd', 'xsl', 'xslt', 'wsdl', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'conf', 'cnf', 'properties', 'env', 'dockerfile', 'dockerignore', 'containerfile', 'gitignore', 'gitattributes', 'gitmodules', 'editorconfig', 'npmrc', 'yarnrc', 'pnpmfile', 'pnpm-workspace', 'npmignore', 'lock', 'cmake', 'make', 'mk', 'gradle', 'bazel', 'bzl', 'meson', 'ninja', 'tf', 'tfvars', 'hcl', 'jenkinsfile', 'kubeconfig', 'har', 'manifest', 'service', 'target'
+    ]
+  };
+
+  // 3. Xử lý trường hợp .key đặc thù
+  if (ext === 'key') {
+    if (size > 102400 || mime.includes('keynote') || mime.includes('iwork')) {
+      return 'powerpoint';
+    }
+    return 'certificate';
+  }
+
+  // 4. Quét qua các danh mục tĩnh
+  for (const [catName, extensions] of Object.entries(categories)) {
+    if (extensions.includes(ext)) {
+      return catName as any;
+    }
+  }
+
   return 'other';
 }
 
@@ -93,9 +93,19 @@ export const DOC_CATEGORY_LABELS: Record<string, string> = {
   excel: 'Excel/CSV',
   powerpoint: 'PowerPoint',
   markdown: 'Markdown',
-  text: 'Text',
-  archive: 'Nén',
-  code: 'Code',
+  text: 'Văn bản',
+  ebook: 'Sách điện tử',
+  database: 'Cơ sở dữ liệu',
+  archive: 'Tệp nén',
+  installer: 'Bộ cài đặt',
+  'disk-image': 'Ảnh đĩa',
+  font: 'Phông chữ',
+  certificate: 'Chứng thư số',
+  design: 'Thiết kế',
+  cad: 'Bản vẽ CAD/3D',
+  executable: 'Tệp thực thi',
+  code: 'Mã nguồn',
+  config: 'Cấu hình',
   other: 'Khác',
 };
 

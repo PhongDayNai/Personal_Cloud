@@ -30,6 +30,13 @@ interface CloudContextType {
   language: string;
   
   // State variables
+  stats: any;
+  setStats: React.Dispatch<React.SetStateAction<any>>;
+  anchorAssetId: string | null;
+  setAnchorAssetId: React.Dispatch<React.SetStateAction<string | null>>;
+  showScrollAnchorBtn: boolean;
+  setShowScrollAnchorBtn: React.Dispatch<React.SetStateAction<boolean>>;
+  scrollToAnchor: () => void;
   usage: any;
   setUsage: React.Dispatch<React.SetStateAction<any>>;
   assets: Asset[];
@@ -191,6 +198,27 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
 
   const [usage, setUsage] = useState<any>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [stats, setStats] = useState<any>(null);
+
+  // Cache configuration
+  const [photosCache, setPhotosCache] = useState<Record<string, {
+    items: Asset[];
+    nextCursor: string | null;
+    hasMore: boolean;
+  }>>({});
+  const usedPhotosKeysRef = useRef<string[]>([]);
+
+  const [docsCache, setDocsCache] = useState<Record<string, {
+    items: Asset[];
+    nextCursor: string | null;
+    hasMore: boolean;
+  }>>({});
+  const usedDocsKeysRef = useRef<string[]>([]);
+
+  // Scroll Anchor State
+  const [anchorAssetId, setAnchorAssetId] = useState<string | null>(null);
+  const [showScrollAnchorBtn, setShowScrollAnchorBtn] = useState<boolean>(false);
+
   const [msg, setMsg] = useState<string>('');
   const [err, setErr] = useState<string>('');
 
@@ -350,6 +378,11 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
   }, [docsBase, selectedDocProject, docCategoryFilter, docTypeFilter]);
 
   const allActiveAssets = useMemo(() => {
+    if (tab === 'dashboard') {
+      const photos = stats?.recentPhotos || [];
+      const docs = stats?.recentDocs ? (Object.values(stats.recentDocs).flat() as Asset[]) : [];
+      return [...photos, ...docs];
+    }
     if (allFilesCollectionView === 'trash') {
       return filteredAssets.filter((a) => a.isDeleted);
     }
@@ -358,7 +391,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
       return active.filter((a) => new Date(a.uploadedAt || 0).getTime() >= recentCutoff);
     }
     return active;
-  }, [filteredAssets, allFilesCollectionView, recentCutoff]);
+  }, [filteredAssets, allFilesCollectionView, recentCutoff, tab, stats]);
 
   const allActiveAssetsGrouped = useMemo(() => {
     const m = new Map<string, Asset[]>();
@@ -410,12 +443,18 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
 
   const docCategoryCounts = useMemo(() => {
     const m = new Map<string, number>();
+    if (stats?.docCategoryCounts) {
+      Object.entries(stats.docCategoryCounts).forEach(([k, v]) => {
+        m.set(k, Number(v));
+      });
+      return m;
+    }
     for (const d of docsBase) {
       const c = docCategoryOf(d);
       m.set(c, (m.get(c) || 0) + 1);
     }
     return m;
-  }, [docsBase]);
+  }, [docsBase, stats]);
 
   const docsGrouped = useMemo(() => {
     const m = new Map<string, Asset[]>();
@@ -523,6 +562,374 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // 1. Tính toán current key
+  const currentPhotosKey = useMemo(() => {
+    const sortedTags = selectedFilterTags.slice().sort().join(',');
+    return `${collectionView}::${selectedAlbum}::${sortedTags}`;
+  }, [collectionView, selectedAlbum, selectedFilterTags]);
+
+  const currentDocsKey = useMemo(() => {
+    const sortedTags = selectedFilterTags.slice().sort().join(',');
+    return `${docCategoryFilter}::${docTypeFilter}::${selectedDocProject}::${docCollectionView}::${sortedTags}`;
+  }, [docCategoryFilter, docTypeFilter, selectedDocProject, docCollectionView, selectedFilterTags]);
+
+  // 2. Tìm phần tử neo hiển thị đầu tiên trong viewport
+  const findFirstVisibleAssetId = (): string | null => {
+    const cards = document.querySelectorAll('.photoCard, .docCard, .tile');
+    for (const card of Array.from(cards)) {
+      const rect = card.getBoundingClientRect();
+      if (rect.top >= 0 && rect.top < window.innerHeight) {
+        const id = card.getAttribute('data-id');
+        if (id) return id;
+      }
+    }
+    return null;
+  };
+
+  // 3. Cuộn về neo và nháy sáng viền
+  const scrollToAnchor = () => {
+    if (!anchorAssetId) return;
+    const card = document.querySelector(`[data-id="${anchorAssetId}"]`);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.add('glowHighlight');
+      setTimeout(() => {
+        card.classList.remove('glowHighlight');
+      }, 2500); // 3 lần nhấp nháy ~ 2.4s
+    }
+    setShowScrollAnchorBtn(false);
+    setAnchorAssetId(null);
+  };
+
+  // 4. Background Sync Photos
+  const syncPhotosInBackground = async (key: string) => {
+    try {
+      const [colView, album, tagsStr] = key.split('::');
+      const params = new URLSearchParams();
+      params.append('limit', '100');
+      params.append('type', 'photos');
+      if (colView === 'images') params.append('subType', 'image');
+      if (colView === 'videos') params.append('subType', 'video');
+      if (colView === 'trash') {
+        params.append('onlyTrash', 'true');
+      } else {
+        params.append('includeTrash', 'false');
+      }
+      if (album && album !== 'all') params.append('album', album);
+      if (tagsStr) {
+        const firstTag = tagsStr.split(',')[0];
+        if (firstTag) params.append('tag', firstTag);
+      }
+
+      const res = await fetch(`${api}/api/assets?${params.toString()}`, { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      handleLiveSync(key, 'photos', data.items || []);
+    } catch (err) {
+      console.error('Background sync photos failed:', err);
+    }
+  };
+
+  // 5. Background Sync Docs
+  const syncDocsInBackground = async (key: string) => {
+    try {
+      const [catFilter, typeFilter, project, docColView, tagsStr] = key.split('::');
+      const params = new URLSearchParams();
+      params.append('limit', '100');
+      params.append('type', 'docs');
+      if (docColView === 'trash') {
+        params.append('onlyTrash', 'true');
+      } else {
+        params.append('includeTrash', 'false');
+      }
+      if (catFilter && catFilter !== 'all') params.append('category', catFilter);
+      if (project && project !== 'all') params.append('docProject', project);
+      if (tagsStr) {
+        const firstTag = tagsStr.split(',')[0];
+        if (firstTag) params.append('tag', firstTag);
+      }
+
+      const res = await fetch(`${api}/api/assets?${params.toString()}`, { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      handleLiveSync(key, 'docs', data.items || []);
+    } catch (err) {
+      console.error('Background sync docs failed:', err);
+    }
+  };
+
+  // 6. Live Sync logic (Added, Updated, Deleted)
+  const handleLiveSync = (key: string, type: 'photos' | 'docs', syncItems: Asset[]) => {
+    const isCurrentKey = (type === 'photos' && key === currentPhotosKey) || (type === 'docs' && key === currentDocsKey);
+    const setCache = type === 'photos' ? setPhotosCache : setDocsCache;
+    
+    setCache(prev => {
+      if (!prev[key]) return prev;
+      
+      const oldItems = prev[key].items || [];
+      const oldIds = new Set(oldItems.map(item => item.id));
+      const addedItems = syncItems.filter(item => !oldIds.has(item.id));
+      
+      const syncItemMap = new Map(syncItems.map(item => [item.id, item]));
+      let hasUpdates = false;
+      
+      const updatedItems = oldItems.map(oldItem => {
+        const syncItem = syncItemMap.get(oldItem.id);
+        if (!syncItem) return oldItem;
+        
+        const isChanged = 
+          oldItem.originalName !== syncItem.originalName ||
+          oldItem.albumName !== syncItem.albumName ||
+          oldItem.docProjectName !== syncItem.docProjectName ||
+          JSON.stringify(oldItem.albumNames) !== JSON.stringify(syncItem.albumNames) ||
+          JSON.stringify(oldItem.docProjectNames) !== JSON.stringify(syncItem.docProjectNames) ||
+          JSON.stringify(oldItem.tags) !== JSON.stringify(syncItem.tags) ||
+          oldItem.isDeleted !== syncItem.isDeleted;
+          
+        if (isChanged) {
+          hasUpdates = true;
+          return syncItem;
+        }
+        return oldItem;
+      });
+
+      const oldPageOneIds = new Set(oldItems.slice(0, 100).map(item => item.id));
+      const syncIds = new Set(syncItems.map(item => item.id));
+      const deletedIds = Array.from(oldPageOneIds).filter(id => !syncIds.has(id));
+      
+      let nextItems = [...updatedItems];
+      if (deletedIds.length > 0) {
+        nextItems = nextItems.filter(item => !deletedIds.includes(item.id));
+      }
+
+      // Xử lý khi có tệp mới được thêm vào
+      if (addedItems.length > 0) {
+        if (isCurrentKey) {
+          // Báo Toast bất đồng bộ bên ngoài updater
+          setTimeout(() => {
+            addToast(t('messages.liveSyncAdded', { count: addedItems.length }) || `Có ${addedItems.length} tệp tin mới vừa được cập nhật. Đang tiến hành đồng bộ ngầm...`, 'info');
+          }, 0);
+          
+          // Ghi nhớ vị trí scroll của người dùng trước khi chèn
+          const currentScrollY = window.scrollY || document.documentElement.scrollTop;
+          if (currentScrollY > 150) {
+            const visibleId = findFirstVisibleAssetId();
+            if (visibleId) {
+              setTimeout(() => {
+                setAnchorAssetId(visibleId);
+                setShowScrollAnchorBtn(true);
+              }, 0);
+            }
+          }
+
+          // Trì hoãn 1.5s mới chèn tệp mới vào đầu danh sách để tránh giật màn hình
+          setTimeout(() => {
+            setCache(currentCache => {
+              if (!currentCache[key]) return currentCache;
+              const currentItems = currentCache[key].items;
+              const updatedCacheItems = [...addedItems, ...currentItems.filter(item => !addedItems.some(a => a.id === item.id))];
+              return { ...currentCache, [key]: { ...currentCache[key], items: updatedCacheItems } };
+            });
+            
+            setAssets(prevDisplay => {
+              const updatedDisplayItems = [...addedItems, ...prevDisplay.filter(item => !addedItems.some(a => a.id === item.id))];
+              return updatedDisplayItems;
+            });
+          }, 1500);
+        } else {
+          // Không phải key đang hiển thị, chèn vào cache ngay lập tức
+          nextItems = [...addedItems, ...nextItems.filter(item => !addedItems.some(a => a.id === item.id))];
+        }
+      }
+
+      const isChanged = hasUpdates || deletedIds.length > 0;
+      if (isChanged && isCurrentKey) {
+        setTimeout(() => {
+          setAssets(nextItems);
+        }, 0);
+      }
+
+      if (isChanged || (addedItems.length > 0 && !isCurrentKey)) {
+        return {
+          ...prev,
+          [key]: { ...prev[key], items: nextItems }
+        };
+      }
+      
+      return prev;
+    });
+  };
+
+  // 7. Fetch Photos from Server
+  const fetchPhotosFromServer = async (key: string, cursor: string | null, isAppend = false) => {
+    setIsLoadingMore(true);
+    try {
+      const [colView, album, tagsStr] = key.split('::');
+      const params = new URLSearchParams();
+      params.append('limit', '100');
+      params.append('type', 'photos');
+      if (colView === 'images') params.append('subType', 'image');
+      if (colView === 'videos') params.append('subType', 'video');
+      if (colView === 'trash') {
+        params.append('onlyTrash', 'true');
+      } else {
+        params.append('includeTrash', 'false');
+      }
+      if (album && album !== 'all') params.append('album', album);
+      if (tagsStr) {
+        const firstTag = tagsStr.split(',')[0];
+        if (firstTag) params.append('tag', firstTag);
+      }
+      if (cursor) params.append('cursor', cursor);
+
+      const res = await fetch(`${api}/api/assets?${params.toString()}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(t('messages.loadDataFailed'));
+      const data = await res.json();
+      
+      const fetchedItems = data.items || [];
+      const newNextCursor = data.nextCursor || null;
+      const newHasMore = !!data.nextCursor;
+
+      setPhotosCache(prev => {
+        const prevEntry = prev[key] || { items: [], nextCursor: null, hasMore: false };
+        const newItems = isAppend ? [...prevEntry.items, ...fetchedItems] : fetchedItems;
+        
+        let nextCache = {
+          ...prev,
+          [key]: { items: newItems, nextCursor: newNextCursor, hasMore: newHasMore }
+        };
+        
+        if (Object.keys(nextCache).length > 15) {
+          const oldestKey = usedPhotosKeysRef.current.find(k => k !== key && prev[k]);
+          if (oldestKey) {
+            delete nextCache[oldestKey];
+            usedPhotosKeysRef.current = usedPhotosKeysRef.current.filter(k => k !== oldestKey);
+          }
+        }
+        return nextCache;
+      });
+
+      if (key === currentPhotosKey) {
+        setAssets(prev => isAppend ? [...prev, ...fetchedItems] : fetchedItems);
+        setNextCursor(newNextCursor);
+        setHasMore(newHasMore);
+      }
+    } catch (e: any) {
+      setErr(e.message || "Tải dữ liệu thất bại");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // 8. Fetch Docs from Server
+  const fetchDocsFromServer = async (key: string, cursor: string | null, isAppend = false) => {
+    setIsLoadingMore(true);
+    try {
+      const [catFilter, typeFilter, project, docColView, tagsStr] = key.split('::');
+      const params = new URLSearchParams();
+      params.append('limit', '100');
+      params.append('type', 'docs');
+      if (docColView === 'trash') {
+        params.append('onlyTrash', 'true');
+      } else {
+        params.append('includeTrash', 'false');
+      }
+      if (catFilter && catFilter !== 'all') params.append('category', catFilter);
+      if (project && project !== 'all') params.append('docProject', project);
+      if (tagsStr) {
+        const firstTag = tagsStr.split(',')[0];
+        if (firstTag) params.append('tag', firstTag);
+      }
+      if (cursor) params.append('cursor', cursor);
+
+      const res = await fetch(`${api}/api/assets?${params.toString()}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(t('messages.loadDataFailed'));
+      const data = await res.json();
+      
+      const fetchedItems = data.items || [];
+      const newNextCursor = data.nextCursor || null;
+      const newHasMore = !!data.nextCursor;
+
+      setDocsCache(prev => {
+        const prevEntry = prev[key] || { items: [], nextCursor: null, hasMore: false };
+        const newItems = isAppend ? [...prevEntry.items, ...fetchedItems] : fetchedItems;
+        
+        let nextCache = {
+          ...prev,
+          [key]: { items: newItems, nextCursor: newNextCursor, hasMore: newHasMore }
+        };
+        
+        if (Object.keys(nextCache).length > 15) {
+          const oldestKey = usedDocsKeysRef.current.find(k => k !== key && prev[k]);
+          if (oldestKey) {
+            delete nextCache[oldestKey];
+            usedDocsKeysRef.current = usedDocsKeysRef.current.filter(k => k !== oldestKey);
+          }
+        }
+        return nextCache;
+      });
+
+      if (key === currentDocsKey) {
+        setAssets(prev => isAppend ? [...prev, ...fetchedItems] : fetchedItems);
+        setNextCursor(newNextCursor);
+        setHasMore(newHasMore);
+      }
+    } catch (e: any) {
+      setErr(e.message || "Tải dữ liệu thất bại");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // 9. Load Filter Photos Trigger
+  const loadFilterPhotos = async (key: string) => {
+    usedPhotosKeysRef.current = [
+      ...usedPhotosKeysRef.current.filter(k => k !== key),
+      key
+    ];
+
+    const cached = photosCache[key];
+    if (cached) {
+      setAssets(cached.items);
+      setNextCursor(cached.nextCursor);
+      setHasMore(cached.hasMore);
+      syncPhotosInBackground(key);
+    } else {
+      await fetchPhotosFromServer(key, null);
+    }
+  };
+
+  // 10. Load Filter Docs Trigger
+  const loadFilterDocs = async (key: string) => {
+    usedDocsKeysRef.current = [
+      ...usedDocsKeysRef.current.filter(k => k !== key),
+      key
+    ];
+
+    const cached = docsCache[key];
+    if (cached) {
+      setAssets(cached.items);
+      setNextCursor(cached.nextCursor);
+      setHasMore(cached.hasMore);
+      syncDocsInBackground(key);
+    } else {
+      await fetchDocsFromServer(key, null);
+    }
+  };
+
+  // 11. Trigger effects when tab or filters change
+  useEffect(() => {
+    if (tab === 'photos') {
+      loadFilterPhotos(currentPhotosKey);
+    }
+  }, [currentPhotosKey, tab]);
+
+  useEffect(() => {
+    if (tab === 'docs') {
+      loadFilterDocs(currentDocsKey);
+    }
+  }, [currentDocsKey, tab]);
+
   async function loadData(isBackground = false) {
     try {
       if (!isBackground) {
@@ -541,26 +948,19 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
         setShowSettingsModal(true);
       }
 
-      const [usageRes, assetsRes, projectsRes, tagsRes, spacesRes] = await Promise.all([
-        fetch(`${api}/api/storage/usage`, { credentials: 'include' }),
-        fetch(`${api}/api/assets?limit=100&includeTrash=true`, { credentials: 'include' }),
-        fetch(`${api}/api/assets/doc-projects`, { credentials: 'include' }),
-        fetch(`${api}/api/assets/tags`, { credentials: 'include' }),
+      const [statsRes, spacesRes] = await Promise.all([
+        fetch(`${api}/api/assets/stats`, { credentials: 'include' }),
         fetch(`${api}/api/spaces`, { credentials: 'include' }),
       ]);
-      if (!usageRes.ok || !assetsRes.ok || !projectsRes.ok || !tagsRes.ok || !spacesRes.ok) throw new Error(t('messages.apiErrorOrSessionExpired'));
-      const usageData = await usageRes.json();
-      const assetsData = await assetsRes.json();
-      const projectsData = await projectsRes.json();
-      const tagsData = await tagsRes.json();
+      if (!statsRes.ok || !spacesRes.ok) throw new Error(t('messages.apiErrorOrSessionExpired'));
+      const statsData = await statsRes.json();
       const spacesData = await spacesRes.json();
 
-      setUsage(usageData);
-      setAssets(assetsData.items || []);
-      setNextCursor(assetsData.nextCursor || null);
-      setHasMore(!!assetsData.nextCursor);
-      setDocProjects(projectsData.items || []);
-      setTags(tagsData.items || []);
+      setStats(statsData);
+      setUsage(statsData.storage);
+      setDocProjects(statsData.docProjects || []);
+      setTags(statsData.tags || []);
+      setAlbums(statsData.albums || []);
       setSpaces(spacesData.spaces || []);
 
       if (activeWorkspace.type === 'space') {
@@ -577,18 +977,24 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
 
   async function loadMoreAssets() {
     if (!nextCursor || isLoadingMore) return;
-    setIsLoadingMore(true);
-    try {
-      const res = await fetch(`${api}/api/assets?limit=100&includeTrash=true&cursor=${nextCursor}`, { credentials: 'include' });
-      if (!res.ok) throw new Error(t('messages.loadDataFailed'));
-      const data = await res.json();
-      setAssets((prev) => [...prev, ...(data.items || [])]);
-      setNextCursor(data.nextCursor || null);
-      setHasMore(!!data.nextCursor);
-    } catch (e: any) {
-      setErr(e.message || "Tải thêm dữ liệu thất bại");
-    } finally {
-      setIsLoadingMore(false);
+    if (tab === 'photos') {
+      await fetchPhotosFromServer(currentPhotosKey, nextCursor, true);
+    } else if (tab === 'docs') {
+      await fetchDocsFromServer(currentDocsKey, nextCursor, true);
+    } else {
+      setIsLoadingMore(true);
+      try {
+        const res = await fetch(`${api}/api/assets?limit=100&includeTrash=true&cursor=${nextCursor}`, { credentials: 'include' });
+        if (!res.ok) throw new Error(t('messages.loadDataFailed'));
+        const data = await res.json();
+        setAssets((prev) => [...prev, ...(data.items || [])]);
+        setNextCursor(data.nextCursor || null);
+        setHasMore(!!data.nextCursor);
+      } catch (e: any) {
+        setErr(e.message || "Tải thêm dữ liệu thất bại");
+      } finally {
+        setIsLoadingMore(false);
+      }
     }
   }
 
@@ -672,6 +1078,21 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
     return done.json();
   }
 
+  async function invalidateCacheAndReload() {
+    setPhotosCache({});
+    setDocsCache({});
+    usedPhotosKeysRef.current = [];
+    usedDocsKeysRef.current = [];
+    
+    await loadData(true);
+    
+    if (tab === 'photos') {
+      await fetchPhotosFromServer(currentPhotosKey, null);
+    } else if (tab === 'docs') {
+      await fetchDocsFromServer(currentDocsKey, null);
+    }
+  }
+
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -724,7 +1145,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    await loadData(true);
+    await invalidateCacheAndReload();
     e.target.value = '';
 
     if (failed.length === 0) {
@@ -751,7 +1172,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
       setMsg(t('messages.trashedCount', { count: data.updated || 0 }));
       setSelectedIds([]);
       setSelectionMode(false);
-      await loadData(true);
+      await invalidateCacheAndReload();
     } catch (e: any) {
       setMsg(t('messages.deleteError', { error: e.message || 'unknown' }));
     }
@@ -771,7 +1192,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
       setMsg(t('messages.restoredCount', { count: data.updated || 0 }));
       setSelectedIds([]);
       setSelectionMode(false);
-      await loadData(true);
+      await invalidateCacheAndReload();
     } catch (e: any) {
       setMsg(t('messages.restoreError', { error: e.message || 'unknown' }));
     }
@@ -794,7 +1215,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
       setMsg(t('messages.purgedCount', { count: data.removed || 0 }));
       setSelectedIds([]);
       setSelectionMode(false);
-      await loadData(true);
+      await invalidateCacheAndReload();
     } catch (e: any) {
       setMsg(t('messages.purgeError', { error: e.message || 'unknown' }));
     }
@@ -815,7 +1236,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
       if (!r.ok) throw new Error(t('messages.albumAddFailed'));
       const data = await r.json();
       setMsg(t('messages.addedToAlbumCount', { count: data.updated || 0, name: name.trim() }));
-      await loadData(true);
+      await invalidateCacheAndReload();
     } catch (e: any) {
       setMsg(t('messages.albumError', { error: e.message || 'unknown' }));
     }
@@ -836,7 +1257,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
       if (!r.ok) throw new Error(t('messages.projectAddFailed'));
       const data = await r.json();
       setMsg(t('messages.addedToProjectCount', { count: data.updated || 0, name: name.trim() }));
-      await loadData(true);
+      await invalidateCacheAndReload();
       await loadDocProjects();
     } catch (e: any) {
       setMsg(t('messages.projectError', { error: e.message || 'unknown' }));
@@ -871,7 +1292,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ albumNames: selectedAlbumsForActive }),
       });
       if (!r.ok) throw new Error(t('viewer.albumUpdateFailed'));
-      await loadData(true);
+      await invalidateCacheAndReload();
       await loadAlbums();
       setShowAlbumPicker(false);
       setMsg(t('viewer.albumUpdateSuccess'));
@@ -908,7 +1329,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ projectNames: selectedDocProjectsForActive }),
       });
       if (!r.ok) throw new Error(t('viewer.projectUpdateFailed') || 'Cập nhật tập tài liệu thất bại');
-      await loadData(true);
+      await invalidateCacheAndReload();
       await loadDocProjects();
       setShowDocProjectPicker(false);
       setMsg(t('viewer.projectUpdateSuccess') || 'Đã cập nhật tập tài liệu của file thành công!');
@@ -945,7 +1366,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ tags: selectedTagsForActive }),
       });
       if (!r.ok) throw new Error(t('viewer.tagsUpdateFailed'));
-      await loadData(true);
+      await invalidateCacheAndReload();
       await loadTags();
       setShowTagPicker(false);
       setMsg(t('viewer.tagsUpdateSuccess'));
@@ -973,6 +1394,11 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
     }
   }, [active]);
 
+  // Tự động đóng viewer (reset activeIndex) khi đổi bộ lọc hoặc tab
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [tab, collectionView, selectedAlbum, docCollectionView, docCategoryFilter, selectedDocProject, selectedFilterTags]);
+
   // Initial load
   useEffect(() => {
     loadData();
@@ -985,6 +1411,10 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
       api, t, language,
       usage, setUsage,
       assets, setAssets,
+      stats, setStats,
+      anchorAssetId, setAnchorAssetId,
+      showScrollAnchorBtn, setShowScrollAnchorBtn,
+      scrollToAnchor,
       msg, setMsg,
       err, setErr,
       tab, setTab,
