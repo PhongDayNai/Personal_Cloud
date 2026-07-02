@@ -10,11 +10,10 @@ import { Asset } from '../../../types';
 import { fmtBytes, docCategoryOf } from '../../../lib/utils';
 import * as Icons from '../../../components/Icons';
 
-function useGridColumns(containerRef: React.RefObject<HTMLDivElement | null>, minWidth: number, gap: number) {
+function useGridColumns(container: HTMLDivElement | null, minWidth: number, gap: number) {
   const [columns, setColumns] = React.useState(3);
 
   React.useEffect(() => {
-    const container = containerRef.current;
     if (!container) return;
 
     const handleResize = (entries: ResizeObserverEntry[]) => {
@@ -36,7 +35,7 @@ function useGridColumns(containerRef: React.RefObject<HTMLDivElement | null>, mi
     return () => {
       observer.disconnect();
     };
-  }, [containerRef, minWidth, gap]);
+  }, [container, minWidth, gap]);
 
   return columns;
 }
@@ -116,9 +115,9 @@ export default function DashboardPage(): React.JSX.Element {
     };
   }, [stats, spaces]);
 
-  const dashboardContainerRef = React.useRef<HTMLDivElement | null>(null);
-  const photoCols = useGridColumns(dashboardContainerRef, 200, 16);
-  const docCols = useGridColumns(dashboardContainerRef, 280, 12);
+  const [dashboardContainer, setDashboardContainer] = React.useState<HTMLDivElement | null>(null);
+  const photoCols = useGridColumns(dashboardContainer, 200, 16);
+  const docCols = useGridColumns(dashboardContainer, 280, 12);
 
   const recentPhotos = React.useMemo(() => {
     if (!stats?.recentPhotos) return [];
@@ -394,7 +393,7 @@ export default function DashboardPage(): React.JSX.Element {
       )}
 
       {tab === 'dashboard' && (
-        <div ref={dashboardContainerRef}>
+        <div ref={setDashboardContainer}>
           <div className="pageHeader">
             <h1>{t('sidebar.dashboard') || 'Tổng quan'}</h1>
             <p>{t('dashboard.subtitle') || 'Xem và quản lý toàn bộ tệp tin, hình ảnh, tài liệu của bạn tại một nơi.'}</p>
