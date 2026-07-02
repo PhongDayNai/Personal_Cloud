@@ -111,7 +111,9 @@ export const DOC_CATEGORY_LABELS: Record<string, string> = {
 
 export function monthLabel(iso: string | null, lang: string): string {
   const d = iso ? new Date(iso) : new Date();
-  return new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', { month: 'long', year: 'numeric' }).format(d);
+  const raw = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', { month: 'long', year: 'numeric' }).format(d);
+  if (!raw) return '';
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
 export function yearLabel(iso: string | null): string {
