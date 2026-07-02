@@ -388,6 +388,8 @@ export default function DashboardPage(): React.JSX.Element {
             openDoc={openDoc}
             t={t}
             groupByTimeEnabled={groupByTimeEnabled}
+            expandedGroups={expandedGroups}
+            toggleGroup={toggleGroup}
           />
         </>
       )}
@@ -673,6 +675,8 @@ export default function DashboardPage(): React.JSX.Element {
             openDoc={openSpaceAsset}
             t={t}
             groupByTimeEnabled={groupByTimeEnabled}
+            expandedGroups={expandedGroups}
+            toggleGroup={toggleGroup}
           />
         </>
       )}
