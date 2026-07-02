@@ -45,8 +45,8 @@ interface CloudContextType {
   setMsg: React.Dispatch<React.SetStateAction<string>>;
   err: string;
   setErr: React.Dispatch<React.SetStateAction<string>>;
-  tab: 'photos' | 'docs' | 'dashboard' | 'space' | 'spaces';
-  setTab: React.Dispatch<React.SetStateAction<'photos' | 'docs' | 'dashboard' | 'space' | 'spaces'>>;
+  tab: 'photos' | 'docs' | 'dashboard' | 'space' | 'space-all' | 'spaces';
+  setTab: React.Dispatch<React.SetStateAction<'photos' | 'docs' | 'dashboard' | 'space' | 'space-all' | 'spaces'>>;
   search: string;
   setSearch: React.Dispatch<React.SetStateAction<string>>;
   activeWorkspace: { type: 'personal' } | { type: 'space'; id: string; name: string; spaceType: string };
@@ -132,10 +132,15 @@ interface CloudContextType {
   setMustChangePassword: React.Dispatch<React.SetStateAction<boolean>>;
   showCreateSpaceModal: boolean;
   setShowCreateSpaceModal: React.Dispatch<React.SetStateAction<boolean>>;
+  showEditSpaceModal: boolean;
+  setShowEditSpaceModal: React.Dispatch<React.SetStateAction<boolean>>;
+  editingSpace: { id: string; name: string; type: 'journal' | 'collection' | 'project'; description: string } | null;
+  setEditingSpace: React.Dispatch<React.SetStateAction<{ id: string; name: string; type: 'journal' | 'collection' | 'project'; description: string } | null>>;
 
   // Operations
   handleLogout: () => Promise<void>;
   handleCreateSpace: (name: string, type: 'journal' | 'collection' | 'project', description: string) => Promise<boolean>;
+  handleUpdateSpace: (id: string, name: string, type: 'journal' | 'collection' | 'project', description: string) => Promise<boolean>;
   handleCreatePost: () => Promise<void>;
   loadData: (isBackground?: boolean) => Promise<void>;
   loadAlbums: () => Promise<void>;
@@ -264,7 +269,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
     }
   }, [err, addToast]);
 
-  const [tab, setTab] = useState<'photos' | 'docs' | 'dashboard' | 'space' | 'spaces'>('dashboard');
+  const [tab, setTab] = useState<'photos' | 'docs' | 'dashboard' | 'space' | 'space-all' | 'spaces'>('dashboard');
   const [search, setSearch] = useState<string>('');
 
   const [activeWorkspace, setActiveWorkspace] = useState<{ type: 'personal' } | { type: 'space'; id: string; name: string; spaceType: string }>({ type: 'personal' });
@@ -322,6 +327,8 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [mustChangePassword, setMustChangePassword] = useState<boolean>(false);
   const [showCreateSpaceModal, setShowCreateSpaceModal] = useState<boolean>(false);
+  const [showEditSpaceModal, setShowEditSpaceModal] = useState<boolean>(false);
+  const [editingSpace, setEditingSpace] = useState<{ id: string; name: string; type: 'journal' | 'collection' | 'project'; description: string } | null>(null);
 
   const longPressRef = useRef<NodeJS.Timeout | null>(null);
   const suppressClickRef = useRef<string | null>(null);
@@ -544,7 +551,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
 
   async function handleCreateSpace(name: string, type: 'journal' | 'collection' | 'project', description: string): Promise<boolean> {
     try {
-      setMsg("Đang tạo không gian con...");
+      setMsg(t('spaces.creating') || "Đang tạo không gian con...");
       const r = await fetch(`${api}/api/spaces`, {
         method: 'POST',
         credentials: 'include',
@@ -553,14 +560,48 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
       });
       if (!r.ok) {
         const errorData = await r.json().catch(() => ({}));
-        throw new Error(errorData.message || "Tạo không gian thất bại");
+        throw new Error(errorData.message || t('spaces.creatingFailed') || "Tạo không gian thất bại");
       }
       const data = await r.json();
       setSpaces(prev => [data.space, ...prev]);
-      setMsg("Đã tạo không gian con thành công!");
+      setMsg(t('spaces.createSuccess') || "Đã tạo không gian con thành công!");
       return true;
     } catch (e: any) {
-      setErr(e.message || "Lỗi tạo không gian");
+      setErr(e.message || t('spaces.createErr') || "Lỗi tạo không gian");
+      throw e;
+    }
+  }
+
+  async function handleUpdateSpace(id: string, name: string, type: 'journal' | 'collection' | 'project', description: string): Promise<boolean> {
+    try {
+      setMsg(t('spaces.updating') || "Đang cập nhật không gian con...");
+      const r = await fetch(`${api}/api/spaces/${id}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), type: type.toLowerCase(), description: description.trim() }),
+      });
+      if (!r.ok) {
+        const errorData = await r.json().catch(() => ({}));
+        throw new Error(errorData.message || t('spaces.updatingFailed') || "Cập nhật không gian thất bại");
+      }
+      const data = await r.json();
+      setSpaces(prev => prev.map(s => s.id === id ? data.space : s));
+      setActiveWorkspace(prev => {
+        if (prev.type === 'space' && prev.id === id) {
+          return {
+            type: 'space',
+            id: id,
+            name: data.space.name,
+            spaceType: data.space.type
+          };
+        }
+        return prev;
+      });
+      setMsg(t('spaces.updateSuccess') || "Đã cập nhật không gian con thành công!");
+      return true;
+    } catch (e: any) {
+      setErr(e.message || t('spaces.updateErr') || "Lỗi cập nhật không gian");
       throw e;
     }
   }
@@ -568,7 +609,7 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
   async function handleCreatePost() {
     if (!postCaption.trim() && postFiles.length === 0) return;
     try {
-      setMsg("Đang đăng bài viết...");
+      setMsg(t('spaces.posting') || "Đang đăng bài viết...");
       const fd = new FormData();
       fd.append('caption', postCaption.trim());
       for (const f of postFiles) {
@@ -579,15 +620,15 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
         credentials: 'include',
         body: fd
       });
-      if (!r.ok) throw new Error("Đăng bài thất bại");
+      if (!r.ok) throw new Error(t('spaces.postingFailed') || "Đăng bài thất bại");
       const data = await r.json();
       setPosts(prev => [data.post, ...prev]);
       setPostCaption('');
       setPostFiles([]);
-      setMsg("Đăng bài viết thành công!");
+      setMsg(t('spaces.postSuccess') || "Đăng bài viết thành công!");
       await loadData(true);
     } catch (e: any) {
-      setErr(e.message || "Lỗi đăng bài");
+      setErr(e.message || t('spaces.postErr') || "Lỗi đăng bài");
     }
   }
 
@@ -1489,10 +1530,13 @@ export function CloudProvider({ children }: { children: React.ReactNode }) {
       showSettingsModal, setShowSettingsModal,
       mustChangePassword, setMustChangePassword,
       showCreateSpaceModal, setShowCreateSpaceModal,
+      showEditSpaceModal, setShowEditSpaceModal,
+      editingSpace, setEditingSpace,
       
       // operations
       handleLogout,
       handleCreateSpace,
+      handleUpdateSpace,
       handleCreatePost,
       loadData,
       loadAlbums,
