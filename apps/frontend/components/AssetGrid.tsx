@@ -82,7 +82,9 @@ export default function AssetGrid({
                 onClick={() => toggleGroup(group)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { toggleGroup(group); } }}
               >
-                <ChevronRight size={14} className={`groupHeaderChevron ${isOpen ? 'open' : ''}`} />
+                <span className={`groupHeaderChevron ${isOpen ? 'open' : ''}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <ChevronRight size={14} />
+                </span>
                 <span>{group}</span>
                 <span className="groupCount">{items.length}</span>
                 {showViewAll && (
