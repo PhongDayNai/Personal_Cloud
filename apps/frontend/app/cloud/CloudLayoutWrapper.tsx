@@ -6,6 +6,7 @@ import Topbar from '../../components/Topbar';
 import MediaViewer from '../../components/MediaViewer';
 import SettingsModal from '../../components/SettingsModal';
 import CreateSpaceModal from '../../components/CreateSpaceModal';
+import EditSpaceModal from '../../components/EditSpaceModal';
 import { useCloud, ToastItem } from '../../context/CloudContext';
 
 interface ToastProps {
@@ -92,6 +93,7 @@ export default function CloudLayoutWrapper({ children }: { children: React.React
     mustChangePassword, setMustChangePassword, setErr,
     groupByTimeEnabled, setGroupByTimeEnabled, groupMode, setGroupMode,
     showCreateSpaceModal, setShowCreateSpaceModal, handleCreateSpace,
+    showEditSpaceModal, setShowEditSpaceModal, editingSpace, setEditingSpace, handleUpdateSpace,
     allActiveAssets, spaceAssets, stats,
     showScrollAnchorBtn, scrollToAnchor
   } = useCloud();
@@ -179,8 +181,8 @@ export default function CloudLayoutWrapper({ children }: { children: React.React
       <MediaViewer
         active={active}
         tab={tab}
-        albumFilteredPhotos={tab === 'dashboard' ? allActiveAssets : tab === 'space' ? spaceAssets : albumFilteredPhotos}
-        docsFiltered={tab === 'dashboard' ? allActiveAssets : tab === 'space' ? spaceAssets : docsFiltered}
+        albumFilteredPhotos={tab === 'dashboard' ? allActiveAssets : (tab === 'space' || tab === 'space-all') ? spaceAssets : albumFilteredPhotos}
+        docsFiltered={tab === 'dashboard' ? allActiveAssets : (tab === 'space' || tab === 'space-all') ? spaceAssets : docsFiltered}
         activeIndex={activeIndex}
         setActiveIndex={setActiveIndex}
         showInfo={showInfo}
@@ -240,6 +242,12 @@ export default function CloudLayoutWrapper({ children }: { children: React.React
         isOpen={showCreateSpaceModal}
         onClose={() => setShowCreateSpaceModal(false)}
         onCreate={handleCreateSpace}
+      />
+      <EditSpaceModal
+        isOpen={showEditSpaceModal}
+        onClose={() => setShowEditSpaceModal(false)}
+        space={editingSpace}
+        onUpdate={handleUpdateSpace}
       />
 
       {showScrollAnchorBtn && (

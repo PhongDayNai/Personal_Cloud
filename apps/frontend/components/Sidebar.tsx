@@ -6,8 +6,8 @@ import { Asset, User, DocProject, Tag } from '../types';
 import { fmtBytes } from '../lib/utils';
 
 interface SidebarProps {
-  tab: 'photos' | 'docs' | 'dashboard' | 'space' | 'spaces';
-  setTab: (tab: 'photos' | 'docs' | 'dashboard' | 'space' | 'spaces') => void;
+  tab: 'photos' | 'docs' | 'dashboard' | 'space' | 'space-all' | 'spaces';
+  setTab: (tab: 'photos' | 'docs' | 'dashboard' | 'space' | 'space-all' | 'spaces') => void;
   collectionView: 'all' | 'recent' | 'images' | 'videos' | 'trash';
   setCollectionView: (view: 'all' | 'recent' | 'images' | 'videos' | 'trash') => void;
   selectedAlbum: string;
@@ -126,7 +126,7 @@ export default function Sidebar({
             <span className="ico"><Icons.Documents /></span><span>{t('sidebar.documents')}</span><span className="count">{docsCount ?? 0}</span>
           </button>
 
-          <button className={`navItem ${tab === 'spaces' || tab === 'space' ? 'active' : ''}`} onClick={() => { router.push('/cloud/spaces'); }}>
+          <button className={`navItem ${tab === 'spaces' || tab === 'space' || tab === 'space-all' ? 'active' : ''}`} onClick={() => { router.push('/cloud/spaces'); }}>
             <span className="ico"><Icons.Spaces /></span><span>{t('sidebar.spaces') || 'Không gian con'}</span><span className="count">{spaces.length}</span>
           </button>
         </div>
@@ -169,13 +169,13 @@ export default function Sidebar({
             </div>
           )}
 
-          {(tab === 'spaces' || tab === 'space') && (
+          {(tab === 'spaces' || tab === 'space' || tab === 'space-all') && (
             <div className="sectionBody sectionIn">
               <div className="subList">
                 {spaces.map((sp) => (
                   <button 
                     key={sp.id} 
-                    className={`subItem ${tab === 'space' && activeWorkspace.type === 'space' && activeWorkspace.id === sp.id ? 'active' : ''}`} 
+                    className={`subItem ${(tab === 'space' || tab === 'space-all') && activeWorkspace.type === 'space' && activeWorkspace.id === sp.id ? 'active' : ''}`} 
                     onClick={() => { 
                       router.push(`/cloud/space/${sp.id}`);
                     }}

@@ -9,6 +9,7 @@ import SmartVideo from '../../../components/SmartVideo';
 import { Asset } from '../../../types';
 import { fmtBytes, docCategoryOf } from '../../../lib/utils';
 import * as Icons from '../../../components/Icons';
+import CustomSelect from '../../../components/CustomSelect';
 
 function useGridColumns(container: HTMLDivElement | null, minWidth: number, gap: number) {
   const [columns, setColumns] = React.useState(3);
@@ -48,7 +49,7 @@ export default function DashboardPage(): React.JSX.Element {
   const {
     api, t, language,
     tab, setTab,
-    activeWorkspace, setActiveWorkspace,
+    activeWorkspace, setActiveWorkspace, search,
     spaces,
     posts, setPosts,
     postCaption, setPostCaption,
@@ -68,6 +69,11 @@ export default function DashboardPage(): React.JSX.Element {
     user,
     selectedDocProject,
     setShowCreateSpaceModal,
+    showEditSpaceModal,
+    setShowEditSpaceModal,
+    editingSpace,
+    setEditingSpace,
+    handleUpdateSpace,
     
     // operations
     handleCreatePost,
@@ -118,6 +124,120 @@ export default function DashboardPage(): React.JSX.Element {
   const [dashboardContainer, setDashboardContainer] = React.useState<HTMLDivElement | null>(null);
   const photoCols = useGridColumns(dashboardContainer, 200, 16);
   const docCols = useGridColumns(dashboardContainer, 280, 12);
+
+  // Local states for Space View All tab
+  const [spaceFileTypeTab, setSpaceFileTypeTab] = React.useState<'all' | 'media' | 'docs'>('all');
+  const [spaceSubFormats, setSpaceSubFormats] = React.useState<string[]>(['all']);
+  const [spaceSortBy, setSpaceSortBy] = React.useState<string>('newest');
+
+  const getSubFormatLabel = (cat: string) => {
+    if (cat === 'all') return t('sidebar.all') || 'All';
+    if (cat === 'image') return t('spaces.image') || 'Photo';
+    if (cat === 'video') return t('spaces.video') || 'Video';
+    const labelKey = `categories.${cat}`;
+    const translated = t(labelKey);
+    if (translated === labelKey) {
+      return cat.toUpperCase();
+    }
+    return translated;
+  };
+
+  // 1. Tính toán các sub-formats khả dụng trong spaceAssets dựa theo tab chính (sắp xếp đồng bộ)
+  const availableSubFormats = React.useMemo(() => {
+    const order = ['all', 'image', 'video', 'pdf', 'word', 'excel', 'powerpoint', 'markdown', 'text', 'ebook', 'database', 'archive', 'installer', 'disk-image', 'font', 'certificate', 'design', 'cad', 'executable', 'code', 'config', 'other'];
+    
+    if (spaceFileTypeTab === 'media') {
+      const hasImg = spaceAssets.some(a => a.type === 'image');
+      const hasVid = spaceAssets.some(a => a.type === 'video');
+      if (hasImg && hasVid) {
+        return ['all', 'image', 'video'];
+      }
+      return [];
+    }
+    
+    if (spaceFileTypeTab === 'docs') {
+      const cats = new Set<string>();
+      spaceAssets.forEach(a => {
+        if (a.type !== 'image' && a.type !== 'video') {
+          cats.add(docCategoryOf(a));
+        }
+      });
+      if (cats.size > 0) {
+        return ['all', ...order.filter(cat => cats.has(cat))];
+      }
+      return [];
+    }
+    
+    // spaceFileTypeTab === 'all'
+    const allTypes = new Set<string>();
+    spaceAssets.forEach(a => {
+      if (a.type === 'image') {
+        allTypes.add('image');
+      } else if (a.type === 'video') {
+        allTypes.add('video');
+      } else {
+        allTypes.add(docCategoryOf(a));
+      }
+    });
+    if (allTypes.size > 0) {
+      return ['all', ...order.filter(cat => allTypes.has(cat))];
+    }
+    return [];
+  }, [spaceAssets, spaceFileTypeTab]);
+
+  const processedSpaceAssets = React.useMemo(() => {
+    let list = spaceAssets;
+    
+    // 1. Lọc theo search
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter((a) => (a.originalName || '').toLowerCase().includes(q) || (a.tags || []).some(tVal => tVal.toLowerCase().includes(q)));
+    }
+    
+    // 2. Lọc theo tab chính (Tất cả, Media, Docs)
+    if (spaceFileTypeTab === 'media') {
+      list = list.filter(a => a.type === 'image' || a.type === 'video');
+    } else if (spaceFileTypeTab === 'docs') {
+      list = list.filter(a => a.type !== 'image' && a.type !== 'video');
+    }
+    
+    // 3. Lọc theo định dạng chi tiết (SubFormats - Đa chọn)
+    if (availableSubFormats.length > 0 && !spaceSubFormats.includes('all')) {
+      list = list.filter(a => {
+        const itemType = a.type;
+        const itemCat = docCategoryOf(a);
+        
+        if (itemType === 'image' && spaceSubFormats.includes('image')) return true;
+        if (itemType === 'video' && spaceSubFormats.includes('video')) return true;
+        if (itemType !== 'image' && itemType !== 'video' && spaceSubFormats.includes(itemCat)) return true;
+        
+        return false;
+      });
+    }
+    
+    // 4. Sắp xếp (Sort)
+    return list.slice().sort((a, b) => {
+      if (spaceSortBy === 'newest') {
+        return new Date(b.uploadedAt || b.takenAt || 0).getTime() - new Date(a.uploadedAt || a.takenAt || 0).getTime();
+      }
+      if (spaceSortBy === 'oldest') {
+        return new Date(a.uploadedAt || a.takenAt || 0).getTime() - new Date(b.uploadedAt || b.takenAt || 0).getTime();
+      }
+      if (spaceSortBy === 'name_asc') {
+        return (a.originalName || '').localeCompare(b.originalName || '');
+      }
+      if (spaceSortBy === 'name_desc') {
+        return (b.originalName || '').localeCompare(a.originalName || '');
+      }
+      if (spaceSortBy === 'size_desc') {
+        return (b.size || 0) - (a.size || 0);
+      }
+      if (spaceSortBy === 'size_asc') {
+        return (a.size || 0) - (b.size || 0);
+      }
+      return 0;
+    });
+  }, [spaceAssets, search, spaceFileTypeTab, spaceSubFormats, spaceSortBy, availableSubFormats]);
 
   const recentPhotos = React.useMemo(() => {
     if (!stats?.recentPhotos) return [];
@@ -197,7 +317,8 @@ export default function DashboardPage(): React.JSX.Element {
     } else if (primary === 'space' && slug[1]) {
       const spaceId = slug[1];
       const found = spaces.find((s) => s.id === spaceId);
-      setTab('space');
+      const isAll = slug[2] === 'all';
+      setTab(isAll ? 'space-all' : 'space');
       setActiveWorkspace((prev) => {
         if (prev.type === 'space' && prev.id === spaceId) {
           if (found && (prev.name !== found.name || prev.spaceType !== found.type)) {
@@ -621,7 +742,7 @@ export default function DashboardPage(): React.JSX.Element {
             <div className="spaceCard createCard" onClick={() => setShowCreateSpaceModal(true)}>
               <div className="createIcon"><Icons.Plus size={28} /></div>
               <div className="createLabel">{t('spaces.create') || 'Tạo không gian con'}</div>
-              <div className="createSub">Nhật ký, Bộ sưu tập hoặc Dự án</div>
+              <div className="createSub">{t('spaces.createTypes')}</div>
             </div>
 
             {spaces.map((sp) => (
@@ -641,9 +762,9 @@ export default function DashboardPage(): React.JSX.Element {
                   </span>
                 </div>
                 <h3 className="spaceCardName">{sp.name}</h3>
-                <p className="spaceCardDesc">{sp.description || 'Không có mô tả cho không gian này.'}</p>
+                <p className="spaceCardDesc">{sp.description || t('spaces.noDescription')}</p>
                 <div className="spaceCardFooter">
-                  <span>Đã tạo: {new Date(sp.createdAt).toLocaleDateString('vi-VN')}</span>
+                  <span>{t('spaces.createdLabel') || 'Đã tạo'}: {new Date(sp.createdAt).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US')}</span>
                 </div>
               </div>
             ))}
@@ -653,12 +774,32 @@ export default function DashboardPage(): React.JSX.Element {
 
       {tab === 'space' && activeWorkspace.type === 'space' && activeWorkspace.spaceType === 'project' && (
         <>
-          <div className="pageHeader">
-            <h1>{activeWorkspace.name}</h1>
-            <p style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <Icons.Project size={14} />
-              <span>{t('spaces.project') || 'Không gian Dự án'} · {t('spaces.projectDesc') || 'Quản lý tài liệu dự án'}</span>
-            </p>
+          <div className="pageHeader flexHeader">
+            <div className="headerText">
+              <h1>{activeWorkspace.name}</h1>
+              <p style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Icons.Project size={14} />
+                <span>{t('spaces.project') || 'Không gian Dự án'} · {t('spaces.projectDesc') || 'Quản lý tài liệu dự án'}</span>
+              </p>
+            </div>
+            <div className="headerActions">
+              <button className="actionBtn editBtn" onClick={() => {
+                const sp = spaces.find(s => s.id === activeWorkspace.id);
+                if (sp) {
+                  setEditingSpace(sp);
+                  setShowEditSpaceModal(true);
+                }
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                <span>{t('spaces.editSpace')}</span>
+              </button>
+              <button className="actionBtn viewAllBtn" onClick={() => {
+                router.push(`/cloud/space/${activeWorkspace.id}/all`);
+              }}>
+                <Icons.AllFiles size={14} />
+                <span>{t('spaces.viewAllFiles')}</span>
+              </button>
+            </div>
           </div>
           <DocView
             docTypeFilter={docTypeFilter}
@@ -683,26 +824,46 @@ export default function DashboardPage(): React.JSX.Element {
 
       {tab === 'space' && activeWorkspace.type === 'space' && activeWorkspace.spaceType !== 'project' && (
         <div className="spaceTimelineView">
-          <div className="pageHeader">
-            <h1>{activeWorkspace.name}</h1>
-            <p style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              {activeWorkspace.spaceType === 'journal' ? (
-                <>
-                  <Icons.Journal size={14} />
-                  <span>{t('spaces.journal') || 'Không gian Nhật ký'} · {t('spaces.journalDesc') || 'Ghi chép câu chuyện'}</span>
-                </>
-              ) : (
-                <>
-                  <Icons.Collection size={14} />
-                  <span>{t('spaces.collection') || 'Không gian Bộ sưu tập'} · {t('spaces.collectionDesc') || 'Lưu trữ file'}</span>
-                </>
-              )}
-            </p>
+          <div className="pageHeader flexHeader">
+            <div className="headerText">
+              <h1>{activeWorkspace.name}</h1>
+              <p style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                {activeWorkspace.spaceType === 'journal' ? (
+                  <>
+                    <Icons.Journal size={14} />
+                    <span>{t('spaces.journal') || 'Không gian Nhật ký'} · {t('spaces.journalDesc') || 'Ghi chép câu chuyện'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Icons.Collection size={14} />
+                    <span>{t('spaces.collection') || 'Không gian Bộ sưu tập'} · {t('spaces.collectionDesc') || 'Lưu trữ file'}</span>
+                  </>
+                )}
+              </p>
+            </div>
+            <div className="headerActions">
+              <button className="actionBtn editBtn" onClick={() => {
+                const sp = spaces.find(s => s.id === activeWorkspace.id);
+                if (sp) {
+                  setEditingSpace(sp);
+                  setShowEditSpaceModal(true);
+                }
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                <span>{t('spaces.editSpace')}</span>
+              </button>
+              <button className="actionBtn viewAllBtn" onClick={() => {
+                router.push(`/cloud/space/${activeWorkspace.id}/all`);
+              }}>
+                <Icons.AllFiles size={14} />
+                <span>{t('spaces.viewAllFiles')}</span>
+              </button>
+            </div>
           </div>
           <div className="postComposer">
             <textarea 
               className="composerInput"
-              placeholder={activeWorkspace.spaceType === 'journal' ? 'Viết gì đó cho hôm nay...' : 'Ghi chú cho tệp đính kèm...'}
+              placeholder={activeWorkspace.spaceType === 'journal' ? t('spaces.composerJournalPlaceholder') : t('spaces.composerCollectionPlaceholder')}
               value={postCaption}
               onChange={(e) => setPostCaption(e.target.value)}
             />
@@ -719,7 +880,7 @@ export default function DashboardPage(): React.JSX.Element {
                 style={{ display: 'none' }}
               />
               <button className="submitPostBtn" onClick={handleCreatePost} disabled={!postCaption.trim() && postFiles.length === 0}>
-                Đăng bài
+                {t('spaces.postButton')}
               </button>
             </div>
             {postFiles.length > 0 && (
@@ -739,7 +900,7 @@ export default function DashboardPage(): React.JSX.Element {
 
           <div className="postsList">
             {posts.length === 0 && (
-              <div className="emptyHint">Chưa có bài đăng nào trong không gian này. Hãy là người đầu tiên đăng bài!</div>
+              <div className="emptyHint">{t('spaces.emptyTimeline')}</div>
             )}
             {posts.map((post) => (
               <div key={post.id} className="postCard">
@@ -748,7 +909,7 @@ export default function DashboardPage(): React.JSX.Element {
                     <span className="avatarCircle">{user ? user.name.charAt(0).toUpperCase() : 'U'}</span>
                     <span className="authorName">{user ? user.name : 'Unknown'}</span>
                   </div>
-                  <span className="postTime">{new Date(post.createdAt).toLocaleString('vi-VN')}</span>
+                  <span className="postTime">{new Date(post.createdAt).toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US')}</span>
                 </div>
                 {post.caption && <div className="postCaption">{post.caption}</div>}
                 {post.assets && post.assets.length > 0 && (
@@ -784,6 +945,217 @@ export default function DashboardPage(): React.JSX.Element {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {tab === 'space-all' && activeWorkspace.type === 'space' && (
+        <div className="spaceAllFilesView">
+          {/* Header section: Breadcrumb và Tiêu đề lớn tinh gọn */}
+          <div className="pageHeader flexHeader" style={{ borderBottom: 'none', paddingBottom: '8px' }}>
+            <div className="headerText">
+              <div className="spaceBreadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <span 
+                  className="breadcrumbBack" 
+                  onClick={() => router.push(`/cloud/space/${activeWorkspace.id}`)}
+                  style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '13px', fontWeight: '600', transition: 'color 0.15s ease', display: 'inline-flex', alignItems: 'center' }}
+                  onMouseEnter={(e: any) => e.currentTarget.style.color = 'var(--text-primary)'}
+                  onMouseLeave={(e: any) => e.currentTarget.style.color = 'var(--text-muted)'}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                  <span>{t('spaces.backToSpace')}</span>
+                </span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>/</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>
+                  {t('actions.viewAll')}
+                </span>
+              </div>
+              <h1 style={{ fontSize: '26px', fontWeight: '800', margin: '4px 0 6px 0', letterSpacing: '-0.5px' }}>
+                {activeWorkspace.name}
+              </h1>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
+                {t('spaces.totalFilesSummary', { total: spaceAssets.length, filtered: processedSpaceAssets.length })}
+              </p>
+            </div>
+            <div className="headerActions">
+              <button className="actionBtn editBtn" onClick={() => {
+                const sp = spaces.find(s => s.id === activeWorkspace.id);
+                if (sp) {
+                  setEditingSpace(sp);
+                  setShowEditSpaceModal(true);
+                }
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                <span>{t('spaces.editSpace')}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="filterPanel" style={{ display: 'flex', flexDirection: 'column', gap: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '20px' }}>
+            {/* Hàng 1: Chọn loại tệp chính */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+              <div className="filterGroup">
+                <span className="filterLabel">{t('spaces.fileTypeLabel')}</span>
+                <div className="filterButtons">
+                  <button 
+                    className={`filterBtn ${spaceFileTypeTab === 'all' ? 'active' : ''}`}
+                    onClick={() => { setSpaceFileTypeTab('all'); setSpaceSubFormats(['all']); }}
+                  >
+                    {t('spaces.typeAll')}
+                  </button>
+                  <button 
+                    className={`filterBtn ${spaceFileTypeTab === 'media' ? 'active' : ''}`}
+                    onClick={() => { setSpaceFileTypeTab('media'); setSpaceSubFormats(['all']); }}
+                  >
+                    {t('spaces.typeMedia')}
+                  </button>
+                  <button 
+                    className={`filterBtn ${spaceFileTypeTab === 'docs' ? 'active' : ''}`}
+                    onClick={() => { setSpaceFileTypeTab('docs'); setSpaceSubFormats(['all']); }}
+                  >
+                    {t('spaces.typeDocs')}
+                  </button>
+                </div>
+              </div>
+
+              {/* Lựa chọn sắp xếp sử dụng CustomSelect global */}
+              <div className="filterGroup" style={{ marginLeft: 'auto' }}>
+                <span className="filterLabel">{t('spaces.sortByLabel')}</span>
+                <CustomSelect 
+                  value={spaceSortBy}
+                  options={[
+                    { value: 'newest', label: t('spaces.sortNewest') },
+                    { value: 'oldest', label: t('spaces.sortOldest') },
+                    { value: 'name_asc', label: t('spaces.sortNameAsc') },
+                    { value: 'name_desc', label: t('spaces.sortNameDesc') },
+                    { value: 'size_desc', label: t('spaces.sortSizeDesc') },
+                    { value: 'size_asc', label: t('spaces.sortSizeAsc') }
+                  ]}
+                  onChange={(val) => setSpaceSortBy(val)}
+                  width="160px"
+                />
+              </div>
+            </div>
+
+            {/* Hàng 2: Bộ lọc định dạng con (SubFormats - Multi-select Chips) */}
+            {availableSubFormats.length > 0 && (
+              <div className="filterGroup subFormatGroup" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', animation: 'fadeIn 0.2s ease-out' }}>
+                <span className="filterLabel">{t('spaces.formatLabel')}</span>
+                <div className="categoryFilterRow" style={{ display: 'flex', gap: '8px', margin: 0, padding: 0, overflowX: 'visible', flexWrap: 'wrap' }}>
+                  {availableSubFormats.map((cat) => {
+                    const isActive = spaceSubFormats.includes(cat);
+                    return (
+                      <button 
+                        key={cat}
+                        className={`catChip ${isActive ? 'active' : ''}`}
+                        style={{
+                          background: isActive ? 'var(--button-primary-bg)' : 'var(--bg-tile)',
+                          borderColor: isActive ? 'var(--button-primary-bg)' : 'var(--border-tile)',
+                          color: isActive ? 'var(--button-primary-text)' : 'var(--text-secondary)',
+                          borderRadius: '99px',
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                        onClick={() => {
+                          if (cat === 'all') {
+                            setSpaceSubFormats(['all']);
+                          } else {
+                            setSpaceSubFormats((prev: string[]) => {
+                              const withoutAll = prev.filter(x => x !== 'all');
+                              if (withoutAll.includes(cat)) {
+                                const next = withoutAll.filter(x => x !== cat);
+                                return next.length === 0 ? ['all'] : next;
+                              }
+                              return [...withoutAll, cat];
+                            });
+                          }
+                        }}
+                      >
+                        {cat === 'all' 
+                          ? t('sidebar.all') 
+                          : isActive 
+                            ? `✓ ${getSubFormatLabel(cat)}` 
+                            : `+ ${getSubFormatLabel(cat)}`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {processedSpaceAssets.length === 0 ? (
+            <div className="emptyHint" style={{ padding: '80px 0', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              {t('spaces.noFilesFound')}
+            </div>
+          ) : (
+            /* Animation key thay đổi theo bộ lọc để trigger lại animation xuất hiện */
+            <div 
+              key={`${spaceFileTypeTab}-${spaceSubFormats.join(',')}-${spaceSortBy}`} 
+              className="spaceAssetsGrid"
+            >
+              {processedSpaceAssets.map((item, idx) => {
+                const isImg = item.type === 'image';
+                const isVid = item.type === 'video';
+                const srcOriginal = `${api}/api/assets/_media/original/${item.id}`;
+                const srcPlay = `${api}/api/assets/_media/play/${item.id}`;
+                const picked = selectedIds.includes(item.id);
+                
+                return (
+                  <div 
+                    key={item.id} 
+                    data-id={item.id}
+                    className={`assetCard ${picked ? 'picked' : ''} ${!isImg && !isVid ? 'docCardStyle' : 'mediaCardStyle'}`}
+                    style={{ animationDelay: `${(idx % 24) * 0.02}s` }}
+                    {...cardHandlers(item, () => {
+                      const idx = spaceAssets.findIndex((x) => x.id === item.id);
+                      if (idx >= 0) setActiveIndex(idx);
+                    })}
+                  >
+                    {isImg && (
+                      <div className="mediaWrapper">
+                        <img src={srcOriginal} alt={item.originalName} className="thumb" loading="lazy" />
+                        <div className="mediaHoverOverlay">
+                          <span className="fileNameOverlay">{item.originalName}</span>
+                          <span className="fileSizeOverlay">{fmtBytes(item.size)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {isVid && (
+                      <div className="mediaWrapper">
+                        <video src={srcPlay} className="thumb" muted preload="none" />
+                        <div className="videoPlayIcon">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </div>
+                        <div className="mediaHoverOverlay">
+                          <span className="fileNameOverlay">{item.originalName}</span>
+                          <span className="fileSizeOverlay">{fmtBytes(item.size)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {!isImg && !isVid && (
+                      <div className="docCardContent">
+                        <div className="docIconWrap">
+                          <Icons.DocIcon item={item} size={28} />
+                          <span className="docExtBadge">{item.originalName.split('.').pop()?.toUpperCase() || 'FILE'}</span>
+                        </div>
+                        <div className="docMetaWrap">
+                          <div className="docTitleName" title={item.originalName}>{item.originalName}</div>
+                          <div className="docSubSize">{fmtBytes(item.size)}</div>
+                        </div>
+                      </div>
+                    )}
+                    {picked && <div className="badge">✓</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1616,6 +1988,284 @@ export default function DashboardPage(): React.JSX.Element {
         .fileSize {
           font-size: 10px;
           color: var(--text-muted);
+        }
+
+        /* space-all styles */
+        .flexHeader {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 16px;
+        }
+        .headerActions {
+          display: flex;
+          gap: 10px;
+        }
+        .actionBtn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: 1px solid var(--border-input);
+          background: var(--bg-input);
+          color: var(--text-primary);
+        }
+        .actionBtn:hover {
+          background: var(--bg-item-hover);
+          border-color: var(--border-input-focus);
+        }
+        .actionBtn.viewAllBtn {
+          background: var(--button-primary-bg);
+          border-color: var(--button-primary-bg);
+          color: var(--button-primary-text);
+          box-shadow: 0 2px 8px var(--button-primary-shadow);
+        }
+        .actionBtn.viewAllBtn:hover {
+          opacity: 0.95;
+          transform: translateY(-1px);
+        }
+        .backToSpaceLink {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: var(--text-muted);
+          margin-bottom: 8px;
+          font-size: 13px;
+          font-weight: 500;
+          transition: color 0.2s;
+        }
+        .backToSpaceLink:hover {
+          color: var(--text-primary);
+        }
+        .filterPanel {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 16px;
+          background: var(--bg-tile);
+          border: 1px solid var(--border-tile);
+          border-radius: 12px;
+          padding: 12px 18px;
+          margin-bottom: 24px;
+        }
+        .filterGroup {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .filterLabel {
+          font-size: 12.5px;
+          font-weight: 600;
+          color: var(--text-secondary);
+        }
+        .filterButtons {
+          display: flex;
+          background: var(--bg-input);
+          border: 1px solid var(--border-input);
+          padding: 3px;
+          border-radius: 8px;
+          gap: 2px;
+        }
+        .filterBtn {
+          background: transparent;
+          border: none;
+          color: var(--text-muted);
+          padding: 6px 12px;
+          font-size: 12.5px;
+          font-weight: 600;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .filterBtn:hover {
+          color: var(--text-primary);
+        }
+        .filterBtn.active {
+          background: var(--bg-tile);
+          color: var(--text-primary);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+        .filterSelect {
+          background: var(--bg-input);
+          border: 1px solid var(--border-input);
+          color: var(--text-primary);
+          padding: 6px 12px;
+          font-size: 12.5px;
+          font-weight: 600;
+          border-radius: 8px;
+          outline: none;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .filterSelect:focus {
+          border-color: var(--border-input-focus);
+        }
+        @keyframes cardEnter {
+          from {
+            opacity: 0;
+            transform: translateY(16px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .spaceAssetsGrid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap: 16px;
+        }
+        .assetCard {
+          position: relative;
+          background: var(--bg-tile);
+          border: 1px solid var(--border-tile);
+          border-radius: 12px;
+          overflow: hidden;
+          cursor: pointer;
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: var(--card-shadow);
+          animation: cardEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .assetCard:hover {
+          transform: translateY(-2px);
+          border-color: var(--border-tile-hover);
+          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+        }
+        .assetCard.picked {
+          border-color: var(--button-primary-bg);
+          box-shadow: 0 0 0 2px var(--button-primary-bg);
+        }
+        .mediaCardStyle {
+          aspect-ratio: 1;
+        }
+        .mediaWrapper {
+          position: relative;
+          width: 100%;
+          height: 100%;
+        }
+        .mediaWrapper .thumb {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .videoPlayIcon {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 44px;
+          height: 44px;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(4px);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .mediaHoverOverlay {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
+          padding: 20px 12px 10px;
+          color: #fff;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          opacity: 0;
+          transition: opacity 0.2s ease;
+        }
+        .assetCard:hover .mediaHoverOverlay {
+          opacity: 1;
+        }
+        .fileNameOverlay {
+          font-size: 11.5px;
+          font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .fileSizeOverlay {
+          font-size: 10px;
+          opacity: 0.8;
+        }
+        .docCardStyle {
+          padding: 14px;
+          display: flex;
+          align-items: center;
+          aspect-ratio: auto;
+          min-height: 74px;
+        }
+        .docCardContent {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          min-width: 0;
+        }
+        .docCardContent .docIconWrap {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          background: rgba(255, 255, 255, 0.03);
+          border-radius: 8px;
+          flex-shrink: 0;
+        }
+        .docExtBadge {
+          position: absolute;
+          bottom: -4px;
+          font-size: 7.5px;
+          font-weight: 900;
+          padding: 1px 3px;
+          border-radius: 4px;
+          background: var(--bg-page);
+          color: var(--text-secondary);
+          border: 1px solid var(--border-tile);
+        }
+        .docMetaWrap {
+          flex: 1;
+          min-width: 0;
+        }
+        .docTitleName {
+          font-size: 12.5px;
+          font-weight: 700;
+          color: var(--text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .docSubSize {
+          font-size: 10px;
+          color: var(--text-muted);
+          margin-top: 2px;
+        }
+        .assetCard .badge {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          background: var(--button-primary-bg);
+          color: var(--button-primary-text);
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: bold;
+          z-index: 2;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
         }
       `}</style>
     </>
